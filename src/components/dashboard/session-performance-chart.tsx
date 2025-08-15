@@ -1,6 +1,6 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart"
 import { mockSessionData } from "@/lib/data"
@@ -39,7 +39,11 @@ export function SessionPerformanceChart() {
               tickFormatter={(value) => `$${value}`}
             />
             <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-            <Bar dataKey="pnl" radius={8} />
+            <Bar dataKey="pnl" radius={8}>
+                {chartData.map((entry) => (
+                    <Cell key={`cell-${entry.session}`} fill={entry.fill} />
+                ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>
