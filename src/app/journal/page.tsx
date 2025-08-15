@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from '@/components/ui/button'
 import { Edit, Trash2 } from 'lucide-react'
 import { Trade } from '@/lib/types'
+import { EditTradeDialog } from '@/components/journal/edit-trade-dialog'
 
 function TradeCard({ trade }: { trade: Trade }) {
   const isProfit = trade.profit >= 0;
@@ -66,7 +67,9 @@ function TradeCard({ trade }: { trade: Trade }) {
             </div>
           </div>
            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" size="sm"><Edit className="mr-2 h-4 w-4" /> Edit</Button>
+              <EditTradeDialog trade={trade}>
+                <Button variant="outline" size="sm"><Edit className="mr-2 h-4 w-4" /> Edit</Button>
+              </EditTradeDialog>
               <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
             </div>
         </AccordionContent>
