@@ -1,3 +1,5 @@
+"use client"
+
 import MainLayout from "@/components/layout/main-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AiInsights } from "@/components/analysis/ai-insights";
