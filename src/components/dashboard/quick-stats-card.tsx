@@ -34,11 +34,11 @@ export function QuickStatsCard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     <Badge variant={stat.trendDirection === 'up' ? 'default' : 'destructive'} className={`${stat.trendDirection === 'up' ? 'bg-accent text-accent-foreground' : ''}`}>
                       {stat.trendDirection === 'up' ? '↑' : '↓'} {stat.trend}
                     </Badge>
-                  </p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
