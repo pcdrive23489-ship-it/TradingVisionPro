@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard } from "lucide-react";
+import { BarChart2, BookText, CandlestickChart, Clock, Database, LayoutDashboard } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,7 +12,7 @@ const menuItems = [
   { href: "/journal", label: "Journal", icon: BookText },
   { href: "/analysis",label: "Analysis", icon: BarChart2 },
   { href: "/sessions", label: "Sessions", icon: Clock },
-  { href: "/market", label: "Market", icon: CandlestickChart },
+  { href: "/master-data", label: "Data", icon: Database },
 ];
 
 export function BottomNav() {
@@ -21,7 +22,7 @@ export function BottomNav() {
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden">
       <div className="grid h-16 grid-cols-5">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)
           return (
             <Link
               key={item.href}

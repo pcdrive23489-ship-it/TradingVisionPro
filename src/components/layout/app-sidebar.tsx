@@ -1,8 +1,9 @@
+
 "use client"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings } from "lucide-react"
+import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database } from "lucide-react"
 
 import {
   Sidebar,
@@ -21,6 +22,7 @@ const menuItems = [
   { href: "/analysis", label: "Analysis", icon: BarChart2 },
   { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/market", label: "Market", icon: CandlestickChart },
+  { href: "/master-data", label: "Master Data", icon: Database },
 ]
 
 export function AppSidebar() {
@@ -40,7 +42,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === item.href}
+                isActive={pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)}
                 icon={<item.icon />}
                 tooltip={item.label}
               >
