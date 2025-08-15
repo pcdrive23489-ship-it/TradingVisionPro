@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
@@ -44,7 +45,7 @@ export function SessionHeatmap() {
                             <div className="grid grid-rows-[auto_1fr] gap-2">
                                 <div className="grid grid-cols-24 gap-1 text-xs text-muted-foreground">
                                     {hours.map(hour => <div key={hour} className="w-8 text-center">{String(hour).padStart(2, '0')}</div>)}
-                                </div>
+                                 </div>
                                 <div className="grid grid-rows-7 grid-flow-col gap-1">
                                     {days.map((day, dayIndex) => (
                                         <React.Fragment key={day}>
