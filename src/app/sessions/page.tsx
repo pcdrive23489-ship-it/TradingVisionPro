@@ -36,7 +36,7 @@ const SessionTradeList = ({ session }: { session: Session }) => {
                         <TableCell className={`text-right font-semibold ${trade.profit >= 0 ? "text-accent" : "text-destructive"}`}>
                             ${trade.profit.toFixed(2)}
                         </TableCell>
-                        <TableCell>{new Date(trade.date).toLocaleString()}</TableCell>
+                        <TableCell>{new Date(trade.date).toLocaleString('en-GB')}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>

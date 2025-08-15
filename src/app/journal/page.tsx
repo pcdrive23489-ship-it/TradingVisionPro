@@ -25,7 +25,7 @@ function TradeCard({ trade }: { trade: Trade }) {
         <AccordionTrigger className="p-4 hover:no-underline">
           <div className="flex-1 grid grid-cols-3 md:grid-cols-5 gap-4 text-left">
             <div className="font-medium">{trade.pair}</div>
-            <div className="hidden md:block">{new Date(trade.date).toLocaleDateString()}</div>
+            <div className="hidden md:block">{new Date(trade.date).toLocaleDateString('en-GB')}</div>
             <div>
               <Badge variant={trade.direction === 'buy' ? 'outline' : 'destructive'} className={`capitalize ${trade.direction === 'buy' ? 'border-primary text-primary' : ''}`}>
                 {trade.direction}
