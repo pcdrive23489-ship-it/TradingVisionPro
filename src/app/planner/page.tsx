@@ -12,7 +12,9 @@ import { Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
-import type { PlannerMasterDataState } from "@/lib/planner-calculations"
+import type { YearlyData } from "@/lib/planner-calculations"
+import { calculatePlannerData } from "@/lib/planner-calculations"
+
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -47,11 +49,9 @@ interface YearlyDataForPlanner {
 
 
 // --- Initial State ---
-const generateInitialYearData = (year: string, masterData: PlannerMasterDataState | null): YearlyDataForPlanner => {
+const generateInitialYearData = (year: string, masterData: YearlyData | null): YearlyDataForPlanner => {
   const numericYear = 2000 + parseInt(year.substring(2));
   const monthly: { [key: string]: MonthlyDataForPlanner } = {};
-
-  const masterYearData = masterData?.[year];
 
   months.forEach((month, monthIndex) => {
     const daysInMonth = getDaysInMonth(new Date(numericYear, monthIndex));
@@ -70,7 +70,7 @@ const generateInitialYearData = (year: string, masterData: PlannerMasterDataStat
       }
     }
     
-    const masterMonthData = masterYearData?.monthly[month];
+    const masterMonthData = masterData?.monthly[month];
     const totalMonthlyProfitPerc = Object.values(masterMonthData?.profitPercentage || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
     const totalMonthlyWithdrawal = Object.values(masterMonthData?.withdrawals || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
     
@@ -91,13 +91,13 @@ const generateInitialYearData = (year: string, masterData: PlannerMasterDataStat
   });
 
   return {
-    openingBalance: masterYearData?.openingBalance || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
+    openingBalance: masterData?.openingBalance || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
     closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
     totalTrades: 240, 
     totalWithdrawals: 0,
     yearlyNetPL: 0,
-    incomeTarget: masterYearData?.incomeTarget || 60000,
-    savingsTarget: masterYearData?.savingsTarget || 25000,
+    incomeTarget: masterData?.incomeTarget || 60000,
+    savingsTarget: masterData?.savingsTarget || 25000,
     monthly,
   };
 };
@@ -269,7 +269,7 @@ function MonthlyPlanner({ yearData, onDataChange }: { yearData: YearlyDataForPla
 }
 
 export default function PlannerPage() {
-  const [masterData, setMasterData] = React.useState<PlannerMasterDataState | null>(null);
+  const [masterData, setMasterData] = React.useState<Record<string, YearlyData> | null>(null);
   const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const [yearData, setYearData] = React.useState<YearlyDataForPlanner | null>(null);
   
@@ -328,7 +328,7 @@ export default function PlannerPage() {
       const parsedMasterData = savedData ? JSON.parse(savedData) : null;
       setMasterData(parsedMasterData);
 
-      const initialData = generateInitialYearData(activeYear, parsedMasterData);
+      const initialData = generateInitialYearData(activeYear, parsedMasterData ? parsedMasterData[activeYear] : null);
       setYearData(runCalculations(initialData));
     } catch (error) {
       console.error("Failed to load or parse planner data:", error);

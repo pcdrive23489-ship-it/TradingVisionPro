@@ -8,7 +8,7 @@ interface MonthlyData {
   profitPercentage: Record<string, number>;
 }
 
-interface YearlyData {
+export interface YearlyData {
   openingBalance: Record<string, number>;
   closingBalance: Record<string, number>;
   incomeTarget: number;
@@ -35,8 +35,7 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
         }
 
         let runningBalances = { ...newData[year].openingBalance };
-        let yearlyTotalWithdrawals = 0;
-
+        
         // Iterate through each month to calculate the closing balance for the current year
         for (const month of months) {
             const monthData = newData[year].monthly[month];
@@ -49,7 +48,6 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
                 
                 // Update the running balance for the current account type
                 runningBalances[accType] = openingForMonth + profit - withdrawal;
-                yearlyTotalWithdrawals += withdrawal;
             });
         }
         
