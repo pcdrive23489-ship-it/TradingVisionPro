@@ -93,8 +93,6 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
       try {
         const result = await getFinancialPlannerInsights({
           openingBalances: yearData.openingBalance,
-          incomeTarget: yearData.incomeTarget,
-          savingsTarget: yearData.savingsTarget,
           month: selectedMonthForAI,
         });
         setAiSuggestions(result);
@@ -398,6 +396,8 @@ export default function PlannerMasterDataPage() {
       )
   }
 
+  const currentYearData = plannerData[activeYear];
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -415,7 +415,7 @@ export default function PlannerMasterDataPage() {
             <TabsContent key={year} value={year} className="space-y-6">
               <PlannerMasterDataForm 
                 year={year} 
-                yearData={plannerData[year]}
+                yearData={currentYearData}
                 onMasterDataChange={handleMasterDataChange}
                 onSave={handleSaveChanges}
               />

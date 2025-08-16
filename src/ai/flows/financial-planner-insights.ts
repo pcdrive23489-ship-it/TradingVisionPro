@@ -13,8 +13,6 @@ import {z} from 'genkit';
 
 const FinancialPlannerInputSchema = z.object({
   openingBalances: z.record(z.number()).describe('The opening balances for each account type (e.g., {"Forex Trading": 50000}).'),
-  incomeTarget: z.number().describe('The yearly income target.'),
-  savingsTarget: z.number().describe('The yearly savings target.'),
   month: z.string().describe('The month for which to generate suggestions (e.g., "Jan", "Feb").'),
 });
 export type FinancialPlannerInput = z.infer<typeof FinancialPlannerInputSchema>;
@@ -39,13 +37,11 @@ const financialPlannerPrompt = ai.definePrompt({
   name: 'financialPlannerPrompt',
   input: {schema: FinancialPlannerInputSchema},
   output: {schema: FinancialPlannerOutputSchema},
-  prompt: `You are an expert financial advisor for traders. Your goal is to provide actionable, conservative, and realistic suggestions to help a user achieve their financial goals.
+  prompt: `You are an expert financial advisor for traders. Your goal is to provide actionable, conservative, and realistic suggestions to help a user manage their trading accounts.
 
 Analyze the provided financial data for the month of {{{month}}}.
 
 **User's Financials:**
-- Yearly Income Target: \${{{incomeTarget}}}
-- Yearly Savings Target: \${{{savingsTarget}}}
 - Opening Balances:
 {{#each openingBalances}}
   - {{@key}}: \${{this}}
