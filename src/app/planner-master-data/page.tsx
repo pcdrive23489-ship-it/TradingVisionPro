@@ -6,7 +6,7 @@ import MainLayout from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Edit } from "lucide-react"
+import { Save } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,8 @@ interface MonthlyData {
 interface YearlyData {
   openingBalance: Record<string, number>;
   closingBalance: Record<string, number>;
+  incomeTarget: number;
+  savingsTarget: number;
   monthly: { [key: string]: MonthlyData };
 }
 
@@ -49,7 +51,9 @@ const generateInitialData = (): PlannerMasterDataState => {
     const openingBalance = { ...lastYearClosing };
     data[year] = {
       openingBalance,
-      closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }, // Will be calculated in planner
+      closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
+      incomeTarget: 60000,
+      savingsTarget: 25000,
       monthly,
     };
     // Placeholder for carry-over logic for next year's opening
@@ -63,6 +67,10 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
     const handleBalanceChange = (field: string, value: string) => {
         onMasterDataChange(year, 'openingBalance', field, parseFloat(value) || 0);
     }
+    
+    const handleTargetChange = (field: 'incomeTarget' | 'savingsTarget', value: string) => {
+        onMasterDataChange(year, field, '', parseFloat(value) || 0);
+    }
 
     const handleProfitChange = (month: string, field: string, value: string) => {
         onMasterDataChange(year, 'profit', field, parseFloat(value) || 0, month);
@@ -73,15 +81,18 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
     }
 
     const totalWithdrawals = React.useMemo(() => {
-        const totals: Record<string, number> = { "Forex Trading": 0, "Online": 0, "Indian Market": 0, "Total": 0 };
+        const totals: Record<string, number> = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
         months.forEach(month => {
             accountTypes.forEach(accType => {
                  totals[accType] += yearData.monthly[month].withdrawals[accType] || 0;
             });
         });
-        totals.Total = Object.values(totals).reduce((a,b) => a+b, 0);
         return totals;
     }, [yearData]);
+
+    const totalOpeningBalance = React.useMemo(() => {
+       return Object.values(yearData.openingBalance).reduce((a, b) => a + b, 0);
+    }, [yearData.openingBalance]);
 
 
     return (
@@ -89,7 +100,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
             <CardHeader>
                 <CardTitle className="flex justify-between items-center">
                     Planner Master Data - {year}
-                    <Button size="sm" onClick={onSave}><Edit className="mr-2 h-4 w-4" /> Save Changes</Button>
+                    <Button size="sm" onClick={onSave}><Save className="mr-2 h-4 w-4" /> Save Changes</Button>
                 </CardTitle>
                 <CardDescription>Set your initial values and targets for the year. These will cascade through the planner.</CardDescription>
             </CardHeader>
@@ -122,7 +133,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                             ))}
                             <TableRow className="font-bold bg-muted/50">
                                 <TableCell>Total</TableCell>
-                                {Object.keys(totalWithdrawals).map(key => key !== 'Total' && <TableCell key={key}>${totalWithdrawals[key].toLocaleString()}</TableCell>)}
+                                {Object.keys(totalWithdrawals).map(key => <TableCell key={key}>${totalWithdrawals[key].toLocaleString()}</TableCell>)}
                             </TableRow>
                         </TableBody>
                     </Table>
@@ -149,6 +160,37 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                         </TableCell>
                                     </TableRow>
                                 ))}
+                                <TableRow className="font-bold bg-muted/50">
+                                    <TableCell>Total Opening</TableCell>
+                                    <TableCell>${totalOpeningBalance.toLocaleString()}</TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                     {/* Targets */}
+                    <div className="space-y-2">
+                        <h3 className="font-semibold text-lg">Yearly Targets</h3>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Target</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow>
+                                    <TableCell className="font-medium">Income Target</TableCell>
+                                    <TableCell>
+                                        <Input type="number" className="w-28" value={yearData.incomeTarget || 0} onChange={e => handleTargetChange('incomeTarget', e.target.value)} />
+                                    </TableCell>
+                                </TableRow>
+                                 <TableRow>
+                                    <TableCell className="font-medium">Savings Target</TableCell>
+                                    <TableCell>
+                                        <Input type="number" className="w-28" value={yearData.savingsTarget || 0} onChange={e => handleTargetChange('savingsTarget', e.target.value)} />
+                                    </TableCell>
+                                </TableRow>
                             </TableBody>
                         </Table>
                     </div>
@@ -157,7 +199,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
 
                 {/* Profit % Table */}
                 <div className="space-y-2">
-                    <h3 className="font-semibold text-lg">Target Profit %</h3>
+                    <h3 className="font-semibold text-lg">Target Monthly Profit %</h3>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -215,8 +257,11 @@ export default function PlannerMasterDataPage() {
     setPlannerData(prev => {
         if (!prev) return null;
         const newData = { ...prev };
+        
         if (section === 'openingBalance') {
             newData[year].openingBalance[key] = value;
+        } else if (section === 'incomeTarget' || section === 'savingsTarget') {
+            newData[year][section] = value;
         } else if (month) {
             if (section === 'profit') {
                  newData[year].monthly[month].profitPercentage[key] = value;
@@ -283,3 +328,5 @@ export default function PlannerMasterDataPage() {
     </MainLayout>
   )
 }
+
+    
