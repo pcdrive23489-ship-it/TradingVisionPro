@@ -76,7 +76,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
     }
 
     const handleProfitChange = (month: string, field: string, value: string) => {
-        onMasterDataChange(year, 'profit', field, parseFloat(value) || 1, month);
+        onMasterDataChange(year, 'profit', field, parseFloat(value) || 0, month);
     }
     
     const handleWithdrawalChange = (month: string, field: string, value: string) => {
@@ -313,7 +313,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                                 type="number"
                                                 placeholder="%"
                                                 className="w-20"
-                                                value={yearData.monthly[month].profitPercentage[accType] || 1}
+                                                value={yearData.monthly[month].profitPercentage[accType] ?? 0}
                                                 onChange={(e) => handleProfitChange(month, accType, e.target.value)}
                                             />
                                         </TableCell>
@@ -366,7 +366,7 @@ export default function PlannerMasterDataPage() {
             newData[year][section] = value;
         } else if (month) {
             if (section === 'profit') {
-                 newData[year].monthly[month].profitPercentage[key] = value || 1;
+                 newData[year].monthly[month].profitPercentage[key] = value;
             } else if (section === 'withdrawal') {
                  newData[year].monthly[month].withdrawals[key] = value;
             }
