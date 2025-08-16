@@ -348,7 +348,6 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                             <Input
                                                 type="number"
                                                 placeholder="%"
-콩
                                                 className="w-20"
                                                 value={yearData.monthly[month].profitPercentage[accType] || 1}
                                                 onChange={(e) => handleProfitChange(month, accType, e.target.value)}
