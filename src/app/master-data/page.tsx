@@ -127,7 +127,7 @@ export default function MasterDataPage() {
                     <TableCell className="font-medium">{trade.pair}</TableCell>
                     <TableCell>{trade.direction}</TableCell>
                     <TableCell>{trade.session}</TableCell>
-                    <TableCell>{new Date(trade.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(trade.date).toLocaleDateString('en-GB')}</TableCell>
                     <TableCell className={`text-right font-semibold ${trade.profit >= 0 ? "text-accent" : "text-destructive"}`}>
                       ${trade.profit.toFixed(2)}
                     </TableCell>
