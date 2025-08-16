@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -23,8 +24,16 @@ const SuggestionSchema = z.object({
 });
 
 const FinancialPlannerOutputSchema = z.object({
-  withdrawalSuggestions: z.record(SuggestionSchema).describe('Suggested withdrawal amounts for each account type.'),
-  profitTargetSuggestions: z.record(SuggestionSchema).describe('Suggested monthly profit percentage targets for each account type.'),
+  withdrawalSuggestions: z.object({
+    "Forex Trading": SuggestionSchema,
+    "Online": SuggestionSchema,
+    "Indian Market": SuggestionSchema,
+  }).describe('Suggested withdrawal amounts for each account type.'),
+  profitTargetSuggestions: z.object({
+    "Forex Trading": SuggestionSchema,
+    "Online": SuggestionSchema,
+    "Indian Market": SuggestionSchema,
+  }).describe('Suggested monthly profit percentage targets for each account type.'),
 });
 export type FinancialPlannerOutput = z.infer<typeof FinancialPlannerOutputSchema>;
 
