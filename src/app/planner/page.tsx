@@ -347,12 +347,15 @@ export default function PlannerPage() {
                      
                      if (tradingDays > 0) {
                         // Distribute monthly values across daily logs
-                        const totalMonthlyProfitPerc = Object.values(monthProfitPerc).reduce((a,b) => a+b, 0) / (accountTypes.length || 1);
-                        const totalMonthlyWithdrawal = Object.values(monthWithdrawals).reduce((a,b) => a+b, 0);
+                        const totalMonthlyProfitPerc = Object.values(monthProfitPerc).reduce((a,b) => Number(a)+Number(b), 0);
+                        const totalMonthlyWithdrawal = Object.values(monthWithdrawals).reduce((a,b) => Number(a)+Number(b), 0);
+
+                        const dailyProfitPerc = totalMonthlyProfitPerc / tradingDays;
+                        const dailyWithdrawal = totalMonthlyWithdrawal / tradingDays;
 
                         initialData[year].monthly[month].log.forEach(day => {
-                            day.return = (totalMonthlyProfitPerc / tradingDays).toFixed(2);
-                            day.withdrawals = parseFloat((totalMonthlyWithdrawal / tradingDays).toFixed(2));
+                            day.return = dailyProfitPerc.toFixed(2);
+                            day.withdrawals = parseFloat(dailyWithdrawal.toFixed(2));
                         });
                      }
                  }
@@ -470,5 +473,3 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
-
-    
