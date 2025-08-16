@@ -333,6 +333,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
 
 export default function PlannerMasterDataPage() {
   const [plannerData, setPlannerData] = React.useState<PlannerMasterDataState | null>(null);
+  const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -405,7 +406,7 @@ export default function PlannerMasterDataPage() {
           <p className="text-muted-foreground">Manage your yearly financial targets and balances.</p>
         </div>
 
-        <Tabs defaultValue="FY25" className="w-full">
+        <Tabs defaultValue={activeYear} onValueChange={setActiveYear} className="w-full">
           <TabsList>
             {fiscalYears.map(year => <TabsTrigger key={year} value={year}>{year}</TabsTrigger>)}
           </TabsList>
@@ -425,3 +426,5 @@ export default function PlannerMasterDataPage() {
     </MainLayout>
   )
 }
+
+    
