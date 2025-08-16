@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, BookText, Menu, LayoutDashboard, CandlestickChart, Target } from "lucide-react";
+import { BarChart2, BookText, Menu, LayoutDashboard, CandlestickChart, Target, Sheet } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSidebar } from "../ui/sidebar";

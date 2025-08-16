@@ -4,7 +4,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database, Target } from "lucide-react"
+import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database, Target, Sheet } from "lucide-react"
 
 import {
   Sidebar,
@@ -25,6 +25,7 @@ const menuItems = [
   { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/market", label: "Market", icon: CandlestickChart },
   { href: "/planner", label: "Planner", icon: Target },
+  { href: "/planner-master-data", label: "Planner Data", icon: Sheet },
   { href: "/master-data", label: "Master Data", icon: Database },
 ]
 
