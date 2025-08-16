@@ -29,21 +29,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   if (isMobile) {
     return (
-      <div className="pb-24">
-        <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur-sm h-16">
-          <h1 className="text-lg font-semibold">{headerTitle}</h1>
-          <div className="flex items-center gap-2">
-            <AddTradeDialog>
-                <Button size="sm">
-                    <Plus className="w-4 h-4 mr-1" />
-                    Log Trade
-                </Button>
-            </AddTradeDialog>
-          </div>
-        </header>
-        <main className="p-4 pt-20">{children}</main>
-        <BottomNav />
-      </div>
+      <SidebarProvider>
+        <AppSidebar />
+        <div className="pb-24">
+          <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur-sm h-16">
+            <h1 className="text-lg font-semibold">{headerTitle}</h1>
+            <div className="flex items-center gap-2">
+              <AddTradeDialog>
+                  <Button size="sm">
+                      <Plus className="w-4 h-4 mr-1" />
+                      Log Trade
+                  </Button>
+              </AddTradeDialog>
+            </div>
+          </header>
+          <main className="p-4 pt-20">{children}</main>
+          <BottomNav />
+        </div>
+      </SidebarProvider>
     )
   }
 
