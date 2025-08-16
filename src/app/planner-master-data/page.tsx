@@ -50,7 +50,6 @@ const generateInitialData = (): PlannerMasterDataState => {
       };
     }
     
-    // First year uses initial opening, others are placeholders for calculation
     const openingBalance = year === fiscalYears[0] ? initialOpening : { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
 
     data[year] = {
@@ -77,38 +76,26 @@ const calculatePlannerData = (data: PlannerMasterDataState): PlannerMasterDataSt
             newData[year].openingBalance = { ...newData[prevYear].closingBalance };
         }
 
-        let yearlyNetPL = 0;
-        let yearlyTotalWithdrawals = 0;
+        let currentYearBalances = { ...newData[year].openingBalance };
 
-        // Calculate total opening balance for the year
-        const totalOpening = Object.values(newData[year].openingBalance).reduce((sum, bal) => sum + bal, 0);
-
-        // Calculate monthly profit/loss and withdrawals
+        // Calculate month by month
         for (const month of months) {
             const monthData = newData[year].monthly[month];
-            const monthlyProfitPercentage = Object.values(monthData.profitPercentage).reduce((sum, p) => sum + p, 0);
-            const monthlyWithdrawal = Object.values(monthData.withdrawals).reduce((sum, w) => sum + w, 0);
+            const nextMonthBalances: Record<string, number> = {};
+            
+            accountTypes.forEach(accType => {
+                const opening = currentYearBalances[accType] || 0;
+                const profitPerc = monthData.profitPercentage[accType] || 0;
+                const withdrawal = monthData.withdrawals[accType] || 0;
 
-            // Simplified: Assume profit is on total opening balance and spread over the year
-            const monthlyPL = totalOpening * (monthlyProfitPercentage / 100);
-            yearlyNetPL += monthlyPL;
-            yearlyTotalWithdrawals += monthlyWithdrawal;
+                const profit = opening * (profitPerc / 100);
+                const closing = opening + profit - withdrawal;
+                nextMonthBalances[accType] = closing;
+            });
+            currentYearBalances = nextMonthBalances;
         }
         
-        const totalClosing = totalOpening + yearlyNetPL - yearlyTotalWithdrawals;
-
-        // Distribute closing balance based on the proportion of the opening balance
-        if (totalOpening > 0) {
-            accountTypes.forEach(accType => {
-                const proportion = newData[year].openingBalance[accType] / totalOpening;
-                newData[year].closingBalance[accType] = totalClosing * proportion;
-            });
-        } else { // Handle case where opening balance is zero
-            const split = totalClosing / accountTypes.length;
-            accountTypes.forEach(accType => {
-                newData[year].closingBalance[accType] = split;
-            });
-        }
+        newData[year].closingBalance = currentYearBalances;
     }
     return newData;
 }
@@ -160,8 +147,9 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
       const section = type === 'withdrawals' ? 'withdrawal' : 'profit';
 
       accountTypes.forEach(accType => {
-        if(suggestions[accType]) {
-          onMasterDataChange(year, section, accType, suggestions[accType].amount, selectedMonthForAI);
+        const suggestionKey = accType as keyof typeof suggestions;
+        if(suggestions[suggestionKey]) {
+          onMasterDataChange(year, section, accType, suggestions[suggestionKey].amount, selectedMonthForAI);
         }
       });
 
@@ -360,6 +348,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                             <Input
                                                 type="number"
                                                 placeholder="%"
+콩
                                                 className="w-20"
                                                 value={yearData.monthly[month].profitPercentage[accType] || 1}
                                                 onChange={(e) => handleProfitChange(month, accType, e.target.value)}
@@ -478,3 +467,5 @@ export default function PlannerMasterDataPage() {
     </MainLayout>
   )
 }
+
+    
