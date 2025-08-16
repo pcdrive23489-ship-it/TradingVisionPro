@@ -70,38 +70,40 @@ const calculatePlannerData = (data: PlannerMasterDataState): PlannerMasterDataSt
     for (let i = 0; i < fiscalYears.length; i++) {
         const year = fiscalYears[i];
         
-        // Carry over opening balance from previous year's closing
         if (i > 0) {
             const prevYear = fiscalYears[i - 1];
             newData[year].openingBalance = { ...newData[prevYear].closingBalance };
         }
 
-        let currentYearBalances = { ...newData[year].openingBalance };
+        let yearlyNetProfit = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
+        let yearlyWithdrawals = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
+        let currentBalances = { ...newData[year].openingBalance };
 
-        // Calculate month by month
         for (const month of months) {
             const monthData = newData[year].monthly[month];
-            const nextMonthBalances: Record<string, number> = {};
             
             accountTypes.forEach(accType => {
-                const opening = currentYearBalances[accType] || 0;
+                const opening = currentBalances[accType] || 0;
                 const profitPerc = monthData.profitPercentage[accType] || 0;
                 const withdrawal = monthData.withdrawals[accType] || 0;
 
                 const profit = opening * (profitPerc / 100);
-                const closing = opening + profit - withdrawal;
-                nextMonthBalances[accType] = closing;
+                yearlyNetProfit[accType] += profit;
+                yearlyWithdrawals[accType] += withdrawal;
+                
+                currentBalances[accType] = opening + profit - withdrawal;
             });
-            currentYearBalances = nextMonthBalances;
         }
         
-        newData[year].closingBalance = currentYearBalances;
+        accountTypes.forEach(accType => {
+             newData[year].closingBalance[accType] = (newData[year].openingBalance[accType] || 0) + yearlyNetProfit[accType] - yearlyWithdrawals[accType];
+        });
     }
     return newData;
 }
 
 
-function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: number, month?: string) => void, onSave: () => void }) {
+function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: any, month?: string) => void, onSave: () => void }) {
     const [aiSuggestions, setAiSuggestions] = React.useState<FinancialPlannerOutput | null>(null);
     const [isGenerating, setIsGenerating] = React.useState(false);
     const [selectedMonthForAI, setSelectedMonthForAI] = React.useState(months[0]);
@@ -391,7 +393,7 @@ export default function PlannerMasterDataPage() {
   }, [handleCalculations]);
 
   
-  const handleMasterDataChange = (year: string, section: string, key: string, value: number, month?: string) => {
+  const handleMasterDataChange = (year: string, section: string, key: string, value: any, month?: string) => {
     setPlannerData(prev => {
         if (!prev) return null;
         const newData = JSON.parse(JSON.stringify(prev));
