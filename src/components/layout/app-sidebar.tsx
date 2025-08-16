@@ -1,9 +1,10 @@
 
+
 "use client"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database } from "lucide-react"
+import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database, Target } from "lucide-react"
 
 import {
   Sidebar,
@@ -23,6 +24,7 @@ const menuItems = [
   { href: "/analysis", label: "Analysis", icon: BarChart2 },
   { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/market", label: "Market", icon: CandlestickChart },
+  { href: "/planner", label: "Planner", icon: Target },
   { href: "/master-data", label: "Master Data", icon: Database },
 ]
 
