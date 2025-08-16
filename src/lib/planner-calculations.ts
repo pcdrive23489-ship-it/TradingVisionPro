@@ -1,4 +1,5 @@
 
+
 // --- Data Types ---
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -29,14 +30,11 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
     for (let i = 0; i < fiscalYears.length; i++) {
         const year = fiscalYears[i];
         
-        // Carry over opening balance from previous year's closing
         if (i > 0) {
             const prevYear = fiscalYears[i - 1];
             newData[year].openingBalance = { ...newData[prevYear].closingBalance };
         }
 
-        let yearlyNetProfit = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
-        let yearlyWithdrawals = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
         let currentBalances = { ...newData[year].openingBalance };
 
         for (const month of months) {
@@ -49,16 +47,11 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
 
                 const profit = opening * (profitPerc / 100);
                 
-                yearlyNetProfit[accType] += profit;
-                yearlyWithdrawals[accType] += withdrawal;
-                
                 currentBalances[accType] = opening + profit - withdrawal;
             });
         }
         
-        accountTypes.forEach(accType => {
-             newData[year].closingBalance[accType] = (newData[year].openingBalance[accType] || 0) + yearlyNetProfit[accType] - yearlyWithdrawals[accType];
-        });
+        newData[year].closingBalance = { ...currentBalances };
     }
     return newData;
 }
