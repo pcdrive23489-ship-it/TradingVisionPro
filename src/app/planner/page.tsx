@@ -93,6 +93,7 @@ const generateInitialData = (): PlannerData => {
       savingsTarget: 25000,
       monthly,
     };
+    // This will be properly set in calculation logic later
     lastYearClosing = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
   }
   return data;
@@ -270,9 +271,17 @@ export default function PlannerPage() {
   
   // Recalculate everything.
   const runCalculations = React.useCallback((data: PlannerData): PlannerData => {
-    const newData = { ...data };
+    const newData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
 
-    for (const year of fiscalYears) {
+    for (let i = 0; i < fiscalYears.length; i++) {
+        const year = fiscalYears[i];
+        
+        // Carry over opening balance from previous year's closing
+        if (i > 0) {
+            const prevYear = fiscalYears[i - 1];
+            newData[year].openingBalance = { ...newData[prevYear].closingBalance };
+        }
+
         let yearlyNetPL = 0;
         let yearlyTotalWithdrawals = 0;
         let lastMonthClosing = Object.values(newData[year].openingBalance).reduce((a, b) => a + b, 0);
@@ -281,11 +290,10 @@ export default function PlannerPage() {
             let lastDayClosing = lastMonthClosing;
             const monthData = newData[year].monthly[month];
             
-            monthData.log.forEach(day => {
+            monthData.log.forEach((day: DailyLog) => {
                 day.opening = lastDayClosing;
                 const returnPercent = parseFloat(day.return) || 0;
                 day.pnl = parseFloat(((day.opening * returnPercent) / 100).toFixed(2));
-                // ensure withdrawals is a number
                 day.withdrawals = Number(day.withdrawals) || 0;
                 day.closing = day.opening + day.pnl - day.withdrawals;
 
@@ -301,7 +309,7 @@ export default function PlannerPage() {
 
         const totalOpening = Object.values(newData[year].openingBalance).reduce((a, b) => a + b, 0);
         const totalClosing = totalOpening + yearlyNetPL - yearlyTotalWithdrawals;
-
+        
         // Simplified closing balance distribution
         if (totalOpening > 0) {
             accountTypes.forEach((acc) => {
@@ -312,15 +320,6 @@ export default function PlannerPage() {
              accountTypes.forEach((acc, i) => {
                 newData[year].closingBalance[acc] = totalClosing / accountTypes.length;
             });
-        }
-        
-         // Carry forward to next year
-        const nextYearIndex = fiscalYears.indexOf(year) + 1;
-        if (nextYearIndex < fiscalYears.length) {
-            const nextYear = fiscalYears[nextYearIndex];
-            if(newData[nextYear]){
-               newData[nextYear].openingBalance = {...newData[year].closingBalance};
-            }
         }
     }
     return newData;
@@ -333,27 +332,25 @@ export default function PlannerPage() {
       
       if (savedData) {
         const parsedData = JSON.parse(savedData);
-        for (const year in parsedData) {
-          if (initialData[year]) {
+         for (const year of fiscalYears) {
+          if (initialData[year] && parsedData[year]) {
             initialData[year].openingBalance = parsedData[year].openingBalance;
             initialData[year].incomeTarget = parsedData[year].incomeTarget || 60000;
             initialData[year].savingsTarget = parsedData[year].savingsTarget || 25000;
 
-            for (const month in parsedData[year].monthly) {
-                 if(initialData[year].monthly[month]) {
+            for (const month of months) {
+                 if(initialData[year].monthly[month] && parsedData[year].monthly[month]) {
                      const monthProfitPerc = parsedData[year].monthly[month].profitPercentage;
                      const monthWithdrawals = parsedData[year].monthly[month].withdrawals;
                      
                      if (initialData[year].monthly[month].log.length > 0) {
-                        const totalMonthlyProfitPerc = Object.values(monthProfitPerc).reduce((a,b) => Number(a)+Number(b), 0);
-                        const totalMonthlyWithdrawal = Object.values(monthWithdrawals).reduce((a,b) => Number(a)+Number(b), 0);
+                        const totalMonthlyProfitPerc = Object.values(monthProfitPerc || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
+                        const totalMonthlyWithdrawal = Object.values(monthWithdrawals || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
 
-                        const dailyProfitPerc = totalMonthlyProfitPerc; // Use total monthly % as daily %
                         const dailyWithdrawal = totalMonthlyWithdrawal / initialData[year].monthly[month].log.length;
 
-
-                        initialData[year].monthly[month].log.forEach(day => {
-                            day.return = dailyProfitPerc.toFixed(2);
+                        initialData[year].monthly[month].log.forEach((day: DailyLog) => {
+                            day.return = String(totalMonthlyProfitPerc);
                             day.withdrawals = parseFloat(dailyWithdrawal.toFixed(2));
                         });
                      }
@@ -373,7 +370,7 @@ export default function PlannerPage() {
       setPlannerData(prev => {
         if (!prev) return null;
         
-        const newData = { ...prev };
+        const newData = JSON.parse(JSON.stringify(prev)); // Deep copy
         const newLog = [...newData[year].monthly[month].log];
         (newLog[dayIndex] as any)[field] = value;
         newData[year].monthly[month].log = newLog;
@@ -472,3 +469,5 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
+
+    
