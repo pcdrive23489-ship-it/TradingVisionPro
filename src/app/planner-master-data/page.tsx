@@ -6,10 +6,12 @@ import MainLayout from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Save } from "lucide-react"
+import { Save, Wand2, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { getFinancialPlannerInsights, FinancialPlannerOutput } from "@/ai/flows/financial-planner-insights"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
@@ -44,7 +46,7 @@ const generateInitialData = (): PlannerMasterDataState => {
     for (const month of months) {
        monthly[month] = {
         withdrawals: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
-        profitPercentage: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }
+        profitPercentage: { "Forex Trading": 1, "Online": 1, "Indian Market": 1 }
       };
     }
 
@@ -64,6 +66,11 @@ const generateInitialData = (): PlannerMasterDataState => {
 
 
 function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: number, month?: string) => void, onSave: () => void }) {
+    const [aiSuggestions, setAiSuggestions] = React.useState<FinancialPlannerOutput | null>(null);
+    const [isGenerating, setIsGenerating] = React.useState(false);
+    const [selectedMonthForAI, setSelectedMonthForAI] = React.useState(months[0]);
+    const { toast } = useToast();
+
     const handleBalanceChange = (field: string, value: string) => {
         onMasterDataChange(year, 'openingBalance', field, parseFloat(value) || 0);
     }
@@ -73,12 +80,49 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
     }
 
     const handleProfitChange = (month: string, field: string, value: string) => {
-        onMasterDataChange(year, 'profit', field, parseFloat(value) || 0, month);
+        onMasterDataChange(year, 'profit', field, parseFloat(value) || 1, month);
     }
     
     const handleWithdrawalChange = (month: string, field: string, value: string) => {
         onMasterDataChange(year, 'withdrawal', field, parseFloat(value) || 0, month);
     }
+    
+    const handleGenerateAISuggestions = async () => {
+      setIsGenerating(true);
+      setAiSuggestions(null);
+      try {
+        const result = await getFinancialPlannerInsights({
+          openingBalances: yearData.openingBalance,
+          incomeTarget: yearData.incomeTarget,
+          savingsTarget: yearData.savingsTarget,
+          month: selectedMonthForAI,
+        });
+        setAiSuggestions(result);
+      } catch (error) {
+        console.error("AI suggestion error:", error);
+        toast({ title: "Error", description: "Could not generate AI suggestions.", variant: "destructive" });
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+    
+    const applyAISuggestions = (type: 'withdrawals' | 'profits') => {
+      if (!aiSuggestions) return;
+
+      const suggestions = type === 'withdrawals' ? aiSuggestions.withdrawalSuggestions : aiSuggestions.profitTargetSuggestions;
+      const section = type === 'withdrawals' ? 'withdrawal' : 'profit';
+
+      accountTypes.forEach(accType => {
+        if(suggestions[accType]) {
+          onMasterDataChange(year, section, accType, suggestions[accType].amount, selectedMonthForAI);
+        }
+      });
+
+      toast({
+        title: "AI Suggestions Applied",
+        description: `Updated ${type} for ${selectedMonthForAI} based on AI recommendations.`
+      });
+    };
 
     const totalWithdrawals = React.useMemo(() => {
         const totals: Record<string, number> = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
@@ -194,6 +238,59 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                             </TableBody>
                         </Table>
                     </div>
+                    
+                    {/* AI Assistant */}
+                     <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Wand2 className="text-primary" /> AI Assistant
+                            </CardTitle>
+                             <CardDescription>Get suggestions for withdrawals and profit targets for a specific month.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                           <div className="flex items-center gap-2">
+                               <Select value={selectedMonthForAI} onValueChange={setSelectedMonthForAI}>
+                                   <SelectTrigger>
+                                       <SelectValue placeholder="Select month" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                       {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                   </SelectContent>
+                               </Select>
+                               <Button onClick={handleGenerateAISuggestions} disabled={isGenerating}>
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Generate
+                                </Button>
+                           </div>
+                            {isGenerating && <p className="text-sm text-muted-foreground text-center">Generating suggestions...</p>}
+                            {aiSuggestions && (
+                                <div className="space-y-4 pt-4 border-t">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="font-semibold">Withdrawal Suggestions</h4>
+                                            <Button size="sm" variant="outline" onClick={() => applyAISuggestions('withdrawals')}>Apply</Button>
+                                        </div>
+                                        <div className="space-y-1 text-sm">
+                                            {Object.entries(aiSuggestions.withdrawalSuggestions).map(([acc, sug]) => (
+                                                <p key={acc}><strong>{acc}:</strong> ${sug.amount.toLocaleString()} - <i className="text-muted-foreground">{sug.rationale}</i></p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                         <div className="flex justify-between items-center mb-2">
+                                            <h4 className="font-semibold">Profit Target Suggestions</h4>
+                                            <Button size="sm" variant="outline" onClick={() => applyAISuggestions('profits')}>Apply</Button>
+                                        </div>
+                                        <div className="space-y-1 text-sm">
+                                            {Object.entries(aiSuggestions.profitTargetSuggestions).map(([acc, sug]) => (
+                                                <p key={acc}><strong>{acc}:</strong> {sug.amount}% - <i className="text-muted-foreground">{sug.rationale}</i></p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                     </Card>
 
                 </div>
 
@@ -217,7 +314,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                                 type="number"
                                                 placeholder="%"
                                                 className="w-20"
-                                                value={yearData.monthly[month].profitPercentage[accType] || 0}
+                                                value={yearData.monthly[month].profitPercentage[accType] || 1}
                                                 onChange={(e) => handleProfitChange(month, accType, e.target.value)}
                                             />
                                         </TableCell>
@@ -256,7 +353,7 @@ export default function PlannerMasterDataPage() {
   const handleMasterDataChange = (year: string, section: string, key: string, value: number, month?: string) => {
     setPlannerData(prev => {
         if (!prev) return null;
-        const newData = { ...prev };
+        const newData = JSON.parse(JSON.stringify(prev));
         
         if (section === 'openingBalance') {
             newData[year].openingBalance[key] = value;
@@ -264,7 +361,7 @@ export default function PlannerMasterDataPage() {
             newData[year][section] = value;
         } else if (month) {
             if (section === 'profit') {
-                 newData[year].monthly[month].profitPercentage[key] = value;
+                 newData[year].monthly[month].profitPercentage[key] = value || 1;
             } else if (section === 'withdrawal') {
                  newData[year].monthly[month].withdrawals[key] = value;
             }
