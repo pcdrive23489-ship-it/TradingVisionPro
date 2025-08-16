@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const accountTypes = ["Forex Trading", "Online", "Indian Market"];
 
 // --- Data Types ---
 interface DailyLog {
@@ -27,17 +28,20 @@ interface DailyLog {
 
 interface MonthlyData {
   log: DailyLog[];
+  withdrawals: Record<string, number>;
+  profitPercentage: Record<string, number>;
 }
 
 interface YearlyData {
-  openingBalance: number;
+  openingBalance: Record<string, number>;
+  closingBalance: Record<string, number>;
   totalTrades: number;
   totalWithdrawals: number;
   yearlyNetPL: number;
-  closingBalance: number;
   incomeTarget: number;
   savingsTarget: number;
   monthly: { [key: string]: MonthlyData };
+  forexLosses: { main: number; mummy: number; other: number };
 }
 
 interface PlannerData {
@@ -47,33 +51,35 @@ interface PlannerData {
 // --- Initial State ---
 const generateInitialData = (): PlannerData => {
   const data: PlannerData = {};
-  let lastYearClosing = 100000;
+  let lastYearClosing = { "Forex Trading": 60000, "Online": 12000, "Indian Market": 8000 };
 
   for (const year of fiscalYears) {
     const monthly: { [key: string]: MonthlyData } = {};
     for (const month of months) {
       const log: DailyLog[] = Array.from({ length: 5 }, (_, i) => ({
-        date: `0${i + 1} ${month}`,
-        opening: 0,
-        return: "0",
-        pnl: 0,
-        withdrawals: 0,
-        closing: 0,
+        date: `0${i + 1} ${month}`, opening: 0, return: "0", pnl: 0, withdrawals: 0, closing: 0,
       }));
-      monthly[month] = { log };
+       monthly[month] = {
+        log,
+        withdrawals: { "Forex trading": 0, "Online": 0, "Indian market": 0 },
+        profitPercentage: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }
+      };
     }
 
+    const openingBalance = { ...lastYearClosing };
     data[year] = {
-      openingBalance: lastYearClosing,
+      openingBalance,
+      closingBalance: { "Forex Trading": 10000, "Online": 5000, "Indian Market": 10000 },
       totalTrades: 240,
       totalWithdrawals: 15000,
       yearlyNetPL: 50000,
-      closingBalance: 135000,
       incomeTarget: 60000,
       savingsTarget: 25000,
       monthly,
+      forexLosses: { main: 400, mummy: 350, other: 50 },
     };
-    lastYearClosing = 135000; // Placeholder for carry-over
+    // Placeholder for carry-over logic
+    lastYearClosing = { "Forex Trading": 135000, "Online": 0, "Indian Market": 0 };
   }
   return data;
 };
@@ -133,8 +139,9 @@ function MonthlyPlanner({ year, yearData, onDataChange }: { year: string, yearDa
     });
 
     summary.winPercentage = summary.totalTrades > 0 ? (wins / summary.totalTrades) * 100 : 0;
+    const openingBalanceForMonth = Object.values(yearData.openingBalance).reduce((a,b) => a+b, 0)
     const lastDay = monthData.log[monthData.log.length - 1];
-    summary.netClosing = lastDay ? lastDay.closing : (monthData.log[0]?.opening || yearData.openingBalance);
+    summary.netClosing = lastDay ? lastDay.closing : (monthData.log[0]?.opening || openingBalanceForMonth);
 
     return summary;
   }, [monthData, yearData.openingBalance]);
@@ -243,7 +250,36 @@ function MonthlyPlanner({ year, yearData, onDataChange }: { year: string, yearDa
   )
 }
 
-function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, field: keyof YearlyData, value: number) => void, onSave: () => void }) {
+function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: number, month?: string) => void, onSave: () => void }) {
+    const handleBalanceChange = (field: string, value: string) => {
+        onMasterDataChange(year, 'openingBalance', field, parseFloat(value) || 0);
+    }
+
+    const handleProfitChange = (month: string, field: string, value: string) => {
+        onMasterDataChange(year, 'profit', field, parseFloat(value) || 0, month);
+    }
+    
+    const handleWithdrawalChange = (month: string, field: string, value: string) => {
+        onMasterDataChange(year, 'withdrawal', field, parseFloat(value) || 0, month);
+    }
+    
+    const handleLossChange = (field: string, value: string) => {
+        onMasterDataChange(year, 'forexLoss', field, parseFloat(value) || 0);
+    }
+
+    const totalWithdrawals = React.useMemo(() => {
+        const totals: Record<string, number> = { "Forex trading": 0, "Online": 0, "Indian market": 0, "Total": 0 };
+        months.forEach(month => {
+            Object.keys(yearData.monthly[month].withdrawals).forEach(accType => {
+                 totals[accType] += yearData.monthly[month].withdrawals[accType] || 0;
+            });
+        });
+        totals.Total = Object.values(totals).reduce((a,b) => a+b, 0);
+        return totals;
+    }, [yearData]);
+
+    const totalForexLoss = Object.values(yearData.forexLosses).reduce((a,b) => a+b, 0);
+
     return (
         <Card>
             <CardHeader>
@@ -253,34 +289,131 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
                 </CardTitle>
                 <CardDescription>Set your initial values and targets for the year. These will cascade through the planner.</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <CardContent className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                {/* Withdrawals Table */}
                 <div className="space-y-2">
-                    <Label htmlFor={`opening-balance-${year}`}>Opening Balance</Label>
-                    <Input
-                        id={`opening-balance-${year}`}
-                        type="number"
-                        value={yearData.openingBalance}
-                        onChange={(e) => onMasterDataChange(year, 'openingBalance', parseFloat(e.target.value) || 0)}
-                    />
+                    <h3 className="font-semibold text-lg">Withdrawals</h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Month</TableHead>
+                                {Object.keys(yearData.monthly.Jan.withdrawals).map(accType => <TableHead key={accType}>{accType}</TableHead>)}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                             {months.map(month => (
+                                <TableRow key={month}>
+                                    <TableCell className="font-medium">{month}-{year.substring(2)}</TableCell>
+                                    {Object.keys(yearData.monthly[month].withdrawals).map(accType => (
+                                        <TableCell key={accType}>
+                                            <Input
+                                                type="number"
+                                                className="w-24"
+                                                value={yearData.monthly[month].withdrawals[accType]}
+                                                onChange={(e) => handleWithdrawalChange(month, accType, e.target.value)}
+                                            />
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                            <TableRow className="font-bold bg-muted/50">
+                                <TableCell>Total</TableCell>
+                                {Object.keys(totalWithdrawals).map(key => key !== 'Total' && <TableCell key={key}>${totalWithdrawals[key].toLocaleString()}</TableCell>)}
+                            </TableRow>
+                        </TableBody>
+                    </Table>
                 </div>
+
+                {/* Balances and Profits */}
+                <div className="space-y-8">
+                    {/* Balances */}
+                    <div className="space-y-2">
+                        <h3 className="font-semibold text-lg">Opening & Closing Balances</h3>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Account</TableHead>
+                                    <TableHead>Opening</TableHead>
+                                    <TableHead>Closing</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {accountTypes.map(acc => (
+                                    <TableRow key={acc}>
+                                        <TableCell className="font-medium">{acc}</TableCell>
+                                        <TableCell>
+                                            <Input type="number" className="w-28" value={yearData.openingBalance[acc] || 0} onChange={e => handleBalanceChange(acc, e.target.value)} />
+                                        </TableCell>
+                                        <TableCell>${(yearData.closingBalance[acc] || 0).toLocaleString()}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Forex Losses */}
+                    <div className="space-y-2">
+                        <h3 className="font-semibold text-lg">Total Loss Made in Forex</h3>
+                         <Table>
+                            <TableBody>
+                                <TableRow>
+                                    <TableCell>In main account</TableCell>
+                                    <TableCell>
+                                        <Input type="number" value={yearData.forexLosses.main} onChange={e => handleLossChange('main', e.target.value)} className="w-24" />
+                                    </TableCell>
+                                </TableRow>
+                                 <TableRow>
+                                    <TableCell>In mummy accou</TableCell>
+                                    <TableCell>
+                                        <Input type="number" value={yearData.forexLosses.mummy} onChange={e => handleLossChange('mummy', e.target.value)} className="w-24" />
+                                    </TableCell>
+                                </TableRow>
+                                 <TableRow>
+                                    <TableCell>Other</TableCell>
+                                    <TableCell>
+                                        <Input type="number" value={yearData.forexLosses.other} onChange={e => handleLossChange('other', e.target.value)} className="w-24" />
+                                    </TableCell>
+                                </TableRow>
+                                 <TableRow className="font-bold bg-muted/50">
+                                    <TableCell>Total</TableCell>
+                                    <TableCell>${totalForexLoss.toLocaleString()}</TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+
+                {/* Profit % Table */}
                 <div className="space-y-2">
-                    <Label htmlFor={`income-target-${year}`}>Income Target</Label>
-                    <Input
-                        id={`income-target-${year}`}
-                        type="number"
-                        value={yearData.incomeTarget}
-                        onChange={(e) => onMasterDataChange(year, 'incomeTarget', parseFloat(e.target.value) || 0)}
-                    />
+                    <h3 className="font-semibold text-lg">Profit %</h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Month</TableHead>
+                                {accountTypes.map(accType => <TableHead key={accType}>{accType}</TableHead>)}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {months.map(month => (
+                                <TableRow key={month}>
+                                    <TableCell className="font-medium">{month}-{year.substring(2)}</TableCell>
+                                    {accountTypes.map(accType => (
+                                        <TableCell key={accType}>
+                                            <Input
+                                                type="number"
+                                                placeholder="%"
+                                                className="w-20"
+                                                value={yearData.monthly[month].profitPercentage[accType]}
+                                                onChange={(e) => handleProfitChange(month, accType, e.target.value)}
+                                            />
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor={`savings-target-${year}`}>Savings Target</Label>
-                    <Input
-                        id={`savings-target-${year}`}
-                        type="number"
-                        value={yearData.savingsTarget}
-                        onChange={(e) => onMasterDataChange(year, 'savingsTarget', parseFloat(e.target.value) || 0)}
-                    />
-                </div>
+
             </CardContent>
         </Card>
     )
@@ -290,17 +423,29 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
 export default function PlannerPage() {
   const [plannerData, setPlannerData] = React.useState(generateInitialData);
   
-  const handleMasterDataChange = (year: string, field: keyof YearlyData, value: number) => {
-    setPlannerData(prev => ({
-      ...prev,
-      [year]: { ...prev[year], [field]: value }
-    }));
+  const handleMasterDataChange = (year: string, section: string, key: string, value: number, month?: string) => {
+    setPlannerData(prev => {
+        const newData = { ...prev };
+        if (section === 'openingBalance') {
+            newData[year].openingBalance[key] = value;
+        } else if (section === 'forexLoss') {
+            (newData[year].forexLosses as any)[key] = value;
+        } else if (month) {
+            if (section === 'profit') {
+                 newData[year].monthly[month].profitPercentage[key] = value;
+            } else if (section === 'withdrawal') {
+                 newData[year].monthly[month].withdrawals[key] = value;
+            }
+        }
+        return newData;
+    });
   };
   
   const handleDailyDataChange = (year: string, month: string, dayIndex: number, field: keyof DailyLog, value: any) => {
       setPlannerData(prev => {
         const newData = { ...prev };
         const newLog = [...newData[year].monthly[month].log];
+        const openingBalanceForYear = Object.values(newData[year].openingBalance).reduce((a,b) => a+b, 0);
         
         // Update the specific field
         (newLog[dayIndex] as any)[field] = value;
@@ -308,7 +453,7 @@ export default function PlannerPage() {
         // Recalculate based on changes
         for (let i = 0; i < newLog.length; i++) {
           const currentDay = newLog[i];
-          const prevDayClosing = i === 0 ? newData[year].openingBalance : newLog[i - 1].closing;
+          const prevDayClosing = i === 0 ? openingBalanceForYear : newLog[i - 1].closing;
 
           currentDay.opening = prevDayClosing;
           
@@ -339,7 +484,11 @@ export default function PlannerPage() {
 
         newData[year].yearlyNetPL = yearlyNetPL;
         newData[year].totalWithdrawals = totalWithdrawals;
-        newData[year].closingBalance = finalClosingBalance;
+
+        // Simplified closing balance logic for now
+        const closingForex = (newData[year].openingBalance['Forex Trading'] || 0) + yearlyNetPL - (totalWithdrawals / 3);
+        newData[year].closingBalance['Forex Trading'] = closingForex;
+
 
         return newData;
       });
@@ -376,14 +525,14 @@ export default function PlannerPage() {
                 
               <Card>
                 <CardHeader>
-                  <CardTitle>Master Yearly Summary - {year}</CardTitle>
+                    <CardTitle>Master Yearly Summary - {year}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <StatCard title="Opening Balance" value={`$${plannerData[year].openingBalance.toLocaleString()}`} />
+                  <StatCard title="Opening Balance" value={`$${Object.values(plannerData[year].openingBalance).reduce((a, b) => a + b, 0).toLocaleString()}`} />
                   <StatCard title="Total Trades" value={String(plannerData[year].totalTrades)} />
                   <StatCard title="Total Withdrawals" value={`$${plannerData[year].totalWithdrawals.toLocaleString()}`} />
                   <StatCard title="Yearly Net P/L" value={`$${plannerData[year].yearlyNetPL.toLocaleString()}`} valueClassName={plannerData[year].yearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
-                  <StatCard title="Closing Balance" value={`$${plannerData[year].closingBalance.toLocaleString()}`} />
+                  <StatCard title="Closing Balance" value={`$${Object.values(plannerData[year].closingBalance).reduce((a, b) => a + b, 0).toLocaleString()}`} />
                 </CardContent>
               </Card>
 
