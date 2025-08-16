@@ -41,7 +41,6 @@ interface YearlyData {
   incomeTarget: number;
   savingsTarget: number;
   monthly: { [key: string]: MonthlyData };
-  forexLosses: { main: number; mummy: number; other: number };
 }
 
 interface PlannerData {
@@ -76,7 +75,6 @@ const generateInitialData = (): PlannerData => {
       incomeTarget: 60000,
       savingsTarget: 25000,
       monthly,
-      forexLosses: { main: 400, mummy: 350, other: 50 },
     };
     // Placeholder for carry-over logic
     lastYearClosing = { "Forex Trading": 135000, "Online": 0, "Indian Market": 0 };
@@ -262,15 +260,11 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
     const handleWithdrawalChange = (month: string, field: string, value: string) => {
         onMasterDataChange(year, 'withdrawal', field, parseFloat(value) || 0, month);
     }
-    
-    const handleLossChange = (field: string, value: string) => {
-        onMasterDataChange(year, 'forexLoss', field, parseFloat(value) || 0);
-    }
 
     const totalWithdrawals = React.useMemo(() => {
         const totals: Record<string, number> = { "Forex trading": 0, "Online": 0, "Indian market": 0, "Total": 0 };
         months.forEach(month => {
-            Object.keys(yearData.monthly[month].withdrawals).forEach(accType => {
+            Object.keys(yearData.monthly.Jan.withdrawals).forEach(accType => {
                  totals[accType] += yearData.monthly[month].withdrawals[accType] || 0;
             });
         });
@@ -278,7 +272,6 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
         return totals;
     }, [yearData]);
 
-    const totalForexLoss = Object.values(yearData.forexLosses).reduce((a,b) => a+b, 0);
 
     return (
         <Card>
@@ -351,36 +344,6 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
                         </Table>
                     </div>
 
-                    {/* Forex Losses */}
-                    <div className="space-y-2">
-                        <h3 className="font-semibold text-lg">Total Loss Made in Forex</h3>
-                         <Table>
-                            <TableBody>
-                                <TableRow>
-                                    <TableCell>In main account</TableCell>
-                                    <TableCell>
-                                        <Input type="number" value={yearData.forexLosses.main} onChange={e => handleLossChange('main', e.target.value)} className="w-24" />
-                                    </TableCell>
-                                </TableRow>
-                                 <TableRow>
-                                    <TableCell>In mummy accou</TableCell>
-                                    <TableCell>
-                                        <Input type="number" value={yearData.forexLosses.mummy} onChange={e => handleLossChange('mummy', e.target.value)} className="w-24" />
-                                    </TableCell>
-                                </TableRow>
-                                 <TableRow>
-                                    <TableCell>Other</TableCell>
-                                    <TableCell>
-                                        <Input type="number" value={yearData.forexLosses.other} onChange={e => handleLossChange('other', e.target.value)} className="w-24" />
-                                    </TableCell>
-                                </TableRow>
-                                 <TableRow className="font-bold bg-muted/50">
-                                    <TableCell>Total</TableCell>
-                                    <TableCell>${totalForexLoss.toLocaleString()}</TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
-                    </div>
                 </div>
 
                 {/* Profit % Table */}
@@ -428,8 +391,6 @@ export default function PlannerPage() {
         const newData = { ...prev };
         if (section === 'openingBalance') {
             newData[year].openingBalance[key] = value;
-        } else if (section === 'forexLoss') {
-            (newData[year].forexLosses as any)[key] = value;
         } else if (month) {
             if (section === 'profit') {
                  newData[year].monthly[month].profitPercentage[key] = value;
