@@ -12,6 +12,7 @@ import { Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
+import { calculatePlannerData, PlannerMasterDataState } from "@/lib/planner-calculations"
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -62,8 +63,7 @@ const generateInitialData = (): PlannerData => {
       const log: DailyLog[] = [];
       for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(numericYear, monthIndex, i);
-        // Assuming trading happens only on weekdays
-        if (date.getDay() > 0 && date.getDay() < 6) {
+        if (date.getDay() > 0 && date.getDay() < 6) { // Trading only on weekdays
            log.push({
             date: format(date, "dd-MMM"),
             opening: 0,
@@ -82,7 +82,7 @@ const generateInitialData = (): PlannerData => {
       };
     });
     
-    const openingBalance = { ...lastYearClosing };
+    const openingBalance = year === fiscalYears[0] ? { ...lastYearClosing } : { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
     data[year] = {
       openingBalance,
       closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
@@ -93,8 +93,6 @@ const generateInitialData = (): PlannerData => {
       savingsTarget: 25000,
       monthly,
     };
-    // This will be properly set in calculation logic later
-    lastYearClosing = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
   }
   return data;
 };
@@ -273,13 +271,28 @@ export default function PlannerPage() {
   const runCalculations = React.useCallback((data: PlannerData): PlannerData => {
     const newData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
 
+    let masterData: PlannerMasterDataState | null = null;
+    try {
+      const savedData = localStorage.getItem("plannerMasterData");
+      if(savedData) {
+        masterData = calculatePlannerData(JSON.parse(savedData));
+      }
+    } catch(e) {
+      console.error("Could not parse master data", e)
+    }
+
+
     for (let i = 0; i < fiscalYears.length; i++) {
         const year = fiscalYears[i];
         
-        // Carry over opening balance from previous year's closing
-        if (i > 0) {
+        // Carry over opening balance from master data calculation
+        if (masterData) {
+          newData[year].openingBalance = { ...masterData[year].openingBalance };
+        } else if (i > 0) {
             const prevYear = fiscalYears[i - 1];
-            newData[year].openingBalance = { ...newData[prevYear].closingBalance };
+            newData[year].openingBalance = Object.values(newData[prevYear].closingBalance).reduce((a,b) => a+b, 0) > 0 
+                ? { ...newData[prevYear].closingBalance }
+                : { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
         }
 
         let yearlyNetPL = 0;
@@ -301,7 +314,9 @@ export default function PlannerPage() {
                 yearlyTotalWithdrawals += day.withdrawals;
                 lastDayClosing = day.closing;
             });
-            lastMonthClosing = lastDayClosing;
+            if (monthData.log.length > 0) {
+              lastMonthClosing = monthData.log[monthData.log.length - 1].closing;
+            }
         }
 
         newData[year].yearlyNetPL = yearlyNetPL;
@@ -334,7 +349,6 @@ export default function PlannerPage() {
         const parsedData = JSON.parse(savedData);
          for (const year of fiscalYears) {
           if (initialData[year] && parsedData[year]) {
-            initialData[year].openingBalance = parsedData[year].openingBalance;
             initialData[year].incomeTarget = parsedData[year].incomeTarget || 60000;
             initialData[year].savingsTarget = parsedData[year].savingsTarget || 25000;
 
@@ -347,7 +361,9 @@ export default function PlannerPage() {
                         const totalMonthlyProfitPerc = Object.values(monthProfitPerc || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
                         const totalMonthlyWithdrawal = Object.values(monthWithdrawals || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
 
-                        const dailyWithdrawal = totalMonthlyWithdrawal / initialData[year].monthly[month].log.length;
+                        const dailyWithdrawal = totalMonthlyWithdrawal > 0 && initialData[year].monthly[month].log.length > 0
+                            ? totalMonthlyWithdrawal / initialData[year].monthly[month].log.length
+                            : 0;
 
                         initialData[year].monthly[month].log.forEach((day: DailyLog) => {
                             day.return = String(totalMonthlyProfitPerc);
@@ -469,5 +485,3 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
-
-    

@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { getFinancialPlannerInsights, FinancialPlannerOutput } from "@/ai/flows/financial-planner-insights"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { calculatePlannerData, PlannerMasterDataState } from "@/lib/planner-calculations"
 
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
@@ -30,10 +31,6 @@ interface YearlyData {
   incomeTarget: number;
   savingsTarget: number;
   monthly: { [key: string]: MonthlyData };
-}
-
-interface PlannerMasterDataState {
-  [key: string]: YearlyData;
 }
 
 // --- Initial State ---
@@ -62,45 +59,6 @@ const generateInitialData = (): PlannerMasterDataState => {
   }
   return data;
 };
-
-// --- Calculation Logic ---
-const calculatePlannerData = (data: PlannerMasterDataState): PlannerMasterDataState => {
-    const newData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation
-    
-    for (let i = 0; i < fiscalYears.length; i++) {
-        const year = fiscalYears[i];
-        
-        if (i > 0) {
-            const prevYear = fiscalYears[i - 1];
-            newData[year].openingBalance = { ...newData[prevYear].closingBalance };
-        }
-
-        let yearlyNetProfit = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
-        let yearlyWithdrawals = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
-        let currentBalances = { ...newData[year].openingBalance };
-
-        for (const month of months) {
-            const monthData = newData[year].monthly[month];
-            
-            accountTypes.forEach(accType => {
-                const opening = currentBalances[accType] || 0;
-                const profitPerc = monthData.profitPercentage[accType] || 0;
-                const withdrawal = monthData.withdrawals[accType] || 0;
-
-                const profit = opening * (profitPerc / 100);
-                yearlyNetProfit[accType] += profit;
-                yearlyWithdrawals[accType] += withdrawal;
-                
-                currentBalances[accType] = opening + profit - withdrawal;
-            });
-        }
-        
-        accountTypes.forEach(accType => {
-             newData[year].closingBalance[accType] = (newData[year].openingBalance[accType] || 0) + yearlyNetProfit[accType] - yearlyWithdrawals[accType];
-        });
-    }
-    return newData;
-}
 
 
 function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: any, month?: string) => void, onSave: () => void }) {
@@ -243,7 +201,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                 ))}
                                 <TableRow className="font-bold bg-muted/50">
                                     <TableCell>Total Opening</TableCell>
-                                    <TableCell>${totalOpeningBalance.toLocaleString()}</TableCell>
+                                    <TableCell>${totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                 </TableRow>
                             </TableBody>
                         </Table>
@@ -468,5 +426,3 @@ export default function PlannerMasterDataPage() {
     </MainLayout>
   )
 }
-
-    
