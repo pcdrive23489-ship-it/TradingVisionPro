@@ -39,7 +39,7 @@ interface PlannerMasterDataState {
 // --- Initial State ---
 const generateInitialData = (): PlannerMasterDataState => {
   const data: PlannerMasterDataState = {};
-  let lastYearClosing = { "Forex Trading": 60000, "Online": 12000, "Indian Market": 8000 };
+  const initialOpening = { "Forex Trading": 60000, "Online": 12000, "Indian Market": 8000 };
 
   for (const year of fiscalYears) {
     const monthly: { [key: string]: MonthlyData } = {};
@@ -49,8 +49,10 @@ const generateInitialData = (): PlannerMasterDataState => {
         profitPercentage: { "Forex Trading": 1, "Online": 1, "Indian Market": 1 }
       };
     }
+    
+    // First year uses initial opening, others are placeholders for calculation
+    const openingBalance = year === fiscalYears[0] ? initialOpening : { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
 
-    const openingBalance = { ...lastYearClosing };
     data[year] = {
       openingBalance,
       closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
@@ -58,11 +60,58 @@ const generateInitialData = (): PlannerMasterDataState => {
       savingsTarget: 25000,
       monthly,
     };
-    // Placeholder for carry-over logic for next year's opening
-    lastYearClosing = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
   }
   return data;
 };
+
+// --- Calculation Logic ---
+const calculatePlannerData = (data: PlannerMasterDataState): PlannerMasterDataState => {
+    const newData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation
+    
+    for (let i = 0; i < fiscalYears.length; i++) {
+        const year = fiscalYears[i];
+        
+        // Carry over opening balance from previous year's closing
+        if (i > 0) {
+            const prevYear = fiscalYears[i - 1];
+            newData[year].openingBalance = { ...newData[prevYear].closingBalance };
+        }
+
+        let yearlyNetPL = 0;
+        let yearlyTotalWithdrawals = 0;
+
+        // Calculate total opening balance for the year
+        const totalOpening = Object.values(newData[year].openingBalance).reduce((sum, bal) => sum + bal, 0);
+
+        // Calculate monthly profit/loss and withdrawals
+        for (const month of months) {
+            const monthData = newData[year].monthly[month];
+            const monthlyProfitPercentage = Object.values(monthData.profitPercentage).reduce((sum, p) => sum + p, 0);
+            const monthlyWithdrawal = Object.values(monthData.withdrawals).reduce((sum, w) => sum + w, 0);
+
+            // Simplified: Assume profit is on total opening balance and spread over the year
+            const monthlyPL = totalOpening * (monthlyProfitPercentage / 100);
+            yearlyNetPL += monthlyPL;
+            yearlyTotalWithdrawals += monthlyWithdrawal;
+        }
+        
+        const totalClosing = totalOpening + yearlyNetPL - yearlyTotalWithdrawals;
+
+        // Distribute closing balance based on the proportion of the opening balance
+        if (totalOpening > 0) {
+            accountTypes.forEach(accType => {
+                const proportion = newData[year].openingBalance[accType] / totalOpening;
+                newData[year].closingBalance[accType] = totalClosing * proportion;
+            });
+        } else { // Handle case where opening balance is zero
+            const split = totalClosing / accountTypes.length;
+            accountTypes.forEach(accType => {
+                newData[year].closingBalance[accType] = split;
+            });
+        }
+    }
+    return newData;
+}
 
 
 function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: number, month?: string) => void, onSave: () => void }) {
@@ -198,7 +247,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                     <TableRow key={acc}>
                                         <TableCell className="font-medium">{acc}</TableCell>
                                         <TableCell>
-                                            <Input type="number" className="w-28" value={yearData.openingBalance[acc] || 0} onChange={e => handleBalanceChange(acc, e.target.value)} />
+                                            <Input type="number" className="w-28" value={yearData.openingBalance[acc] || 0} onChange={e => handleBalanceChange(acc, e.target.value)} disabled={year !== fiscalYears[0]} />
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -334,19 +383,24 @@ export default function PlannerMasterDataPage() {
   const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const { toast } = useToast();
 
+  const handleCalculations = React.useCallback((data: PlannerMasterDataState | null) => {
+    if (!data) return null;
+    return calculatePlannerData(data);
+  }, []);
+
   React.useEffect(() => {
     try {
       const savedData = localStorage.getItem("plannerMasterData");
       if (savedData) {
-        setPlannerData(JSON.parse(savedData));
+        setPlannerData(handleCalculations(JSON.parse(savedData)));
       } else {
-        setPlannerData(generateInitialData());
+        setPlannerData(handleCalculations(generateInitialData()));
       }
     } catch (error) {
       console.error("Failed to load or parse master data:", error);
-      setPlannerData(generateInitialData());
+      setPlannerData(handleCalculations(generateInitialData()));
     }
-  }, []);
+  }, [handleCalculations]);
 
   
   const handleMasterDataChange = (year: string, section: string, key: string, value: number, month?: string) => {
@@ -365,7 +419,7 @@ export default function PlannerMasterDataPage() {
                  newData[year].monthly[month].withdrawals[key] = value;
             }
         }
-        return newData;
+        return handleCalculations(newData);
     });
   };
 
@@ -396,8 +450,6 @@ export default function PlannerMasterDataPage() {
       )
   }
 
-  const currentYearData = plannerData[activeYear];
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -415,7 +467,7 @@ export default function PlannerMasterDataPage() {
             <TabsContent key={year} value={year} className="space-y-6">
               <PlannerMasterDataForm 
                 year={year} 
-                yearData={currentYearData}
+                yearData={plannerData[year]}
                 onMasterDataChange={handleMasterDataChange}
                 onSave={handleSaveChanges}
               />
@@ -426,5 +478,3 @@ export default function PlannerMasterDataPage() {
     </MainLayout>
   )
 }
-
-    
