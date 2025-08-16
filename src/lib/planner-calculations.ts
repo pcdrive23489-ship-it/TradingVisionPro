@@ -30,28 +30,31 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
     for (let i = 0; i < fiscalYears.length; i++) {
         const year = fiscalYears[i];
         
+        // If it's not the first year, set the opening balance from the previous year's closing balance.
         if (i > 0) {
             const prevYear = fiscalYears[i - 1];
             newData[year].openingBalance = { ...newData[prevYear].closingBalance };
         }
 
-        let currentBalances = { ...newData[year].openingBalance };
+        let runningBalances = { ...newData[year].openingBalance };
 
+        // Iterate through each month to calculate the closing balance for the current year
         for (const month of months) {
             const monthData = newData[year].monthly[month];
             
             accountTypes.forEach(accType => {
-                const opening = currentBalances[accType] || 0;
+                const openingForMonth = runningBalances[accType] || 0;
                 const profitPerc = monthData.profitPercentage[accType] || 0;
                 const withdrawal = monthData.withdrawals[accType] || 0;
-
-                const profit = opening * (profitPerc / 100);
+                const profit = openingForMonth * (profitPerc / 100);
                 
-                currentBalances[accType] = opening + profit - withdrawal;
+                // Update the running balance for the current account type
+                runningBalances[accType] = openingForMonth + profit - withdrawal;
             });
         }
         
-        newData[year].closingBalance = { ...currentBalances };
+        // After all months, the running balance is the closing balance for the year.
+        newData[year].closingBalance = { ...runningBalances };
     }
     return newData;
 }
