@@ -3,24 +3,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, BookText, CandlestickChart, Clock, Database, LayoutDashboard } from "lucide-react";
+import { BarChart2, BookText, Menu, LayoutDashboard, CandlestickChart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useSidebar } from "../ui/sidebar";
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/journal", label: "Journal", icon: BookText },
+  { href: "/market",label: "Market", icon: CandlestickChart },
   { href: "/analysis",label: "Analysis", icon: BarChart2 },
-  { href: "/sessions", label: "Sessions", icon: Clock },
-  { href: "/master-data", label: "Data", icon: Database },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden">
-      <div className="grid h-16 grid-cols-5">
+      <div className="grid h-16 grid-cols-5 items-stretch">
         {menuItems.map((item) => {
           const isActive = pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)
           return (
@@ -33,10 +34,17 @@ export function BottomNav() {
               )}
             >
               <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <span className="truncate">{item.label}</span>
             </Link>
           );
         })}
+        <button
+            onClick={() => setOpenMobile(true)}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+            <Menu className="h-5 w-5" />
+            <span className="truncate">More</span>
+        </button>
       </div>
     </div>
   );

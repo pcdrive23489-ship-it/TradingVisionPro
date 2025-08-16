@@ -47,16 +47,16 @@ export default function DashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Pair</TableHead>
-                  <TableHead>Direction</TableHead>
+                  <TableHead className="hidden sm:table-cell">Direction</TableHead>
                   <TableHead className="text-right">Profit</TableHead>
-                  <TableHead>Session</TableHead>
+                  <TableHead className="hidden md:table-cell">Session</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentTrades.map((trade) => (
                   <TableRow key={trade.id}>
                     <TableCell className="font-medium">{trade.pair}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Badge variant={trade.direction === "buy" ? "default" : "destructive"} className={`${trade.direction === "buy" ? "bg-primary" : "bg-destructive"}`}>
                         {trade.direction}
                       </Badge>
@@ -64,7 +64,7 @@ export default function DashboardPage() {
                     <TableCell className={`text-right font-semibold ${trade.profit >= 0 ? "text-accent" : "text-destructive"}`}>
                       ${trade.profit.toFixed(2)}
                     </TableCell>
-                    <TableCell>{trade.session}</TableCell>
+                    <TableCell className="hidden md:table-cell">{trade.session}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

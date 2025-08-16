@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Logo } from "@/components/icons"
 
@@ -27,6 +28,8 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { setOpenMobile } = useSidebar();
+
 
   return (
     <Sidebar>
@@ -45,6 +48,7 @@ export function AppSidebar() {
                 isActive={pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)}
                 icon={<item.icon />}
                 tooltip={item.label}
+                onClick={() => setOpenMobile(false)}
               >
                 <Link href={item.href}>
                   {item.label}
