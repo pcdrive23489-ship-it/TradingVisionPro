@@ -343,15 +343,14 @@ export default function PlannerPage() {
                  if(initialData[year].monthly[month]) {
                      const monthProfitPerc = parsedData[year].monthly[month].profitPercentage;
                      const monthWithdrawals = parsedData[year].monthly[month].withdrawals;
-                     const tradingDays = initialData[year].monthly[month].log.length;
                      
-                     if (tradingDays > 0) {
-                        // Distribute monthly values across daily logs
+                     if (initialData[year].monthly[month].log.length > 0) {
                         const totalMonthlyProfitPerc = Object.values(monthProfitPerc).reduce((a,b) => Number(a)+Number(b), 0);
                         const totalMonthlyWithdrawal = Object.values(monthWithdrawals).reduce((a,b) => Number(a)+Number(b), 0);
 
-                        const dailyProfitPerc = totalMonthlyProfitPerc / tradingDays;
-                        const dailyWithdrawal = totalMonthlyWithdrawal / tradingDays;
+                        const dailyProfitPerc = totalMonthlyProfitPerc; // Use total monthly % as daily %
+                        const dailyWithdrawal = totalMonthlyWithdrawal / initialData[year].monthly[month].log.length;
+
 
                         initialData[year].monthly[month].log.forEach(day => {
                             day.return = dailyProfitPerc.toFixed(2);
