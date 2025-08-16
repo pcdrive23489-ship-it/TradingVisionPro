@@ -203,6 +203,10 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
                                     <TableCell>Total Opening</TableCell>
                                     <TableCell>${totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                 </TableRow>
+                                <TableRow className="font-bold bg-muted/50">
+                                    <TableCell>Closing Balance</TableCell>
+                                    <TableCell>${Object.values(yearData.closingBalance).reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                </TableRow>
                             </TableBody>
                         </Table>
                     </div>

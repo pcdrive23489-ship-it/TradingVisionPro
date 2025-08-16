@@ -12,7 +12,7 @@ import { Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
-import { calculatePlannerData, PlannerMasterDataState } from "@/lib/planner-calculations"
+import type { PlannerMasterDataState } from "@/lib/planner-calculations"
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -45,56 +45,61 @@ interface YearlyDataForPlanner {
   monthly: { [key: string]: MonthlyDataForPlanner };
 }
 
-interface PlannerData {
-  [key: string]: YearlyDataForPlanner;
-}
 
 // --- Initial State ---
-const generateInitialData = (): PlannerData => {
-  const data: PlannerData = {};
-  let lastYearClosing = { "Forex Trading": 60000, "Online": 12000, "Indian Market": 8000 };
+const generateInitialYearData = (year: string, masterData: PlannerMasterDataState | null): YearlyDataForPlanner => {
+  const numericYear = 2000 + parseInt(year.substring(2));
+  const monthly: { [key: string]: MonthlyDataForPlanner } = {};
 
-  for (const year of fiscalYears) {
-    const numericYear = 2000 + parseInt(year.substring(2));
-    const monthly: { [key: string]: MonthlyDataForPlanner } = {};
-    
-    months.forEach((month, monthIndex) => {
-      const daysInMonth = getDaysInMonth(new Date(numericYear, monthIndex));
-      const log: DailyLog[] = [];
-      for (let i = 1; i <= daysInMonth; i++) {
-        const date = new Date(numericYear, monthIndex, i);
-        if (date.getDay() > 0 && date.getDay() < 6) { // Trading only on weekdays
-           log.push({
-            date: format(date, "dd-MMM"),
-            opening: 0,
-            return: "0",
-            pnl: 0,
-            withdrawals: 0,
-            closing: 0,
-          });
-        }
+  const masterYearData = masterData?.[year];
+
+  months.forEach((month, monthIndex) => {
+    const daysInMonth = getDaysInMonth(new Date(numericYear, monthIndex));
+    const log: DailyLog[] = [];
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(numericYear, monthIndex, i);
+      if (date.getDay() > 0 && date.getDay() < 6) { // Trading only on weekdays
+         log.push({
+          date: format(date, "dd-MMM"),
+          opening: 0,
+          return: "0",
+          pnl: 0,
+          withdrawals: 0,
+          closing: 0,
+        });
       }
-
-      monthly[month] = {
-        log,
-        withdrawals: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
-        profitPercentage: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }
-      };
-    });
+    }
     
-    const openingBalance = year === fiscalYears[0] ? { ...lastYearClosing } : { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
-    data[year] = {
-      openingBalance,
-      closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
-      totalTrades: 240, 
-      totalWithdrawals: 0,
-      yearlyNetPL: 0,
-      incomeTarget: 60000,
-      savingsTarget: 25000,
-      monthly,
+    const masterMonthData = masterYearData?.monthly[month];
+    const totalMonthlyProfitPerc = Object.values(masterMonthData?.profitPercentage || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
+    const totalMonthlyWithdrawal = Object.values(masterMonthData?.withdrawals || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
+    
+    const dailyWithdrawal = totalMonthlyWithdrawal > 0 && log.length > 0
+        ? totalMonthlyWithdrawal / log.length
+        : 0;
+
+    log.forEach(day => {
+        day.return = String(totalMonthlyProfitPerc);
+        day.withdrawals = parseFloat(dailyWithdrawal.toFixed(2));
+    });
+
+    monthly[month] = {
+      log,
+      withdrawals: masterMonthData?.withdrawals || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
+      profitPercentage: masterMonthData?.profitPercentage || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }
     };
-  }
-  return data;
+  });
+
+  return {
+    openingBalance: masterYearData?.openingBalance || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
+    closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
+    totalTrades: 240, 
+    totalWithdrawals: 0,
+    yearlyNetPL: 0,
+    incomeTarget: masterYearData?.incomeTarget || 60000,
+    savingsTarget: masterYearData?.savingsTarget || 25000,
+    monthly,
+  };
 };
 
 
@@ -123,11 +128,11 @@ function TargetBar({ title, actual, target }: { title: string, actual: number, t
   )
 }
 
-function MonthlyPlanner({ year, yearData, onDataChange }: { year: string, yearData: YearlyDataForPlanner, onDataChange: (year: string, month: string, dayIndex: number, field: keyof DailyLog, value: any) => void }) {
+function MonthlyPlanner({ yearData, onDataChange }: { yearData: YearlyDataForPlanner, onDataChange: (month: string, dayIndex: number, field: keyof DailyLog, value: any) => void }) {
   const [activeMonth, setActiveMonth] = React.useState(months[0]);
   
   const handleInputChange = (month: string, dayIndex: number, field: keyof DailyLog, value: string) => {
-    onDataChange(year, month, dayIndex, field, value);
+    onDataChange(month, dayIndex, field, value);
   };
 
   const monthData = yearData.monthly[activeMonth];
@@ -264,146 +269,98 @@ function MonthlyPlanner({ year, yearData, onDataChange }: { year: string, yearDa
 }
 
 export default function PlannerPage() {
-  const [plannerData, setPlannerData] = React.useState<PlannerData | null>(null);
+  const [masterData, setMasterData] = React.useState<PlannerMasterDataState | null>(null);
   const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
+  const [yearData, setYearData] = React.useState<YearlyDataForPlanner | null>(null);
   
-  // Recalculate everything.
-  const runCalculations = React.useCallback((data: PlannerData): PlannerData => {
-    const newData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
+  // Recalculate everything for the current year.
+  const runCalculations = React.useCallback((data: YearlyDataForPlanner): YearlyDataForPlanner => {
+    const newData = JSON.parse(JSON.stringify(data)); // Deep copy
 
-    let masterData: PlannerMasterDataState | null = null;
-    try {
-      const savedData = localStorage.getItem("plannerMasterData");
-      if(savedData) {
-        masterData = calculatePlannerData(JSON.parse(savedData));
-      }
-    } catch(e) {
-      console.error("Could not parse master data", e)
+    let yearlyNetPL = 0;
+    let yearlyTotalWithdrawals = 0;
+    let lastMonthClosing = Object.values(newData.openingBalance).reduce((a, b) => a + b, 0);
+
+    for (const month of months) {
+        let lastDayClosing = lastMonthClosing;
+        const monthData = newData.monthly[month];
+        
+        monthData.log.forEach((day: DailyLog) => {
+            day.opening = lastDayClosing;
+            const returnPercent = parseFloat(day.return) || 0;
+            day.pnl = parseFloat(((day.opening * returnPercent) / 100).toFixed(2));
+            day.withdrawals = Number(day.withdrawals) || 0;
+            day.closing = day.opening + day.pnl - day.withdrawals;
+
+            yearlyNetPL += day.pnl;
+            yearlyTotalWithdrawals += day.withdrawals;
+            lastDayClosing = day.closing;
+        });
+        if (monthData.log.length > 0) {
+          lastMonthClosing = monthData.log[monthData.log.length - 1].closing;
+        }
     }
 
-
-    for (let i = 0; i < fiscalYears.length; i++) {
-        const year = fiscalYears[i];
-        
-        // Carry over opening balance from master data calculation
-        if (masterData) {
-          newData[year].openingBalance = { ...masterData[year].openingBalance };
-        } else if (i > 0) {
-            const prevYear = fiscalYears[i - 1];
-            newData[year].openingBalance = Object.values(newData[prevYear].closingBalance).reduce((a,b) => a+b, 0) > 0 
-                ? { ...newData[prevYear].closingBalance }
-                : { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
-        }
-
-        let yearlyNetPL = 0;
-        let yearlyTotalWithdrawals = 0;
-        let lastMonthClosing = Object.values(newData[year].openingBalance).reduce((a, b) => a + b, 0);
-
-        for (const month of months) {
-            let lastDayClosing = lastMonthClosing;
-            const monthData = newData[year].monthly[month];
-            
-            monthData.log.forEach((day: DailyLog) => {
-                day.opening = lastDayClosing;
-                const returnPercent = parseFloat(day.return) || 0;
-                day.pnl = parseFloat(((day.opening * returnPercent) / 100).toFixed(2));
-                day.withdrawals = Number(day.withdrawals) || 0;
-                day.closing = day.opening + day.pnl - day.withdrawals;
-
-                yearlyNetPL += day.pnl;
-                yearlyTotalWithdrawals += day.withdrawals;
-                lastDayClosing = day.closing;
-            });
-            if (monthData.log.length > 0) {
-              lastMonthClosing = monthData.log[monthData.log.length - 1].closing;
-            }
-        }
-
-        newData[year].yearlyNetPL = yearlyNetPL;
-        newData[year].totalWithdrawals = yearlyTotalWithdrawals;
-
-        const totalOpening = Object.values(newData[year].openingBalance).reduce((a, b) => a + b, 0);
-        const totalClosing = totalOpening + yearlyNetPL - yearlyTotalWithdrawals;
-        
-        // Simplified closing balance distribution
-        if (totalOpening > 0) {
-            accountTypes.forEach((acc) => {
-                const proportion = (newData[year].openingBalance[acc] || 0) / totalOpening;
-                newData[year].closingBalance[acc] = totalClosing * proportion;
-            });
-        } else { // Handle zero opening balance
-             accountTypes.forEach((acc, i) => {
-                newData[year].closingBalance[acc] = totalClosing / accountTypes.length;
-            });
-        }
+    newData.yearlyNetPL = yearlyNetPL;
+    newData.totalWithdrawals = yearlyTotalWithdrawals;
+    newData.closingBalance = { "Forex Trading": lastMonthClosing, "Online": 0, "Indian Market": 0 };
+    
+    // Simplified closing balance distribution
+    const totalOpening = Object.values(newData.openingBalance).reduce((a, b) => a + b, 0);
+    const totalClosing = lastMonthClosing;
+    if (totalOpening > 0) {
+        accountTypes.forEach((acc) => {
+            const proportion = (newData.openingBalance[acc] || 0) / totalOpening;
+            newData.closingBalance[acc] = totalClosing * proportion;
+        });
+    } else { // Handle zero opening balance
+         accountTypes.forEach((acc, i) => {
+            newData.closingBalance[acc] = totalClosing / accountTypes.length;
+        });
     }
+
     return newData;
   }, []);
 
   React.useEffect(() => {
     try {
       const savedData = localStorage.getItem("plannerMasterData");
-      let initialData = generateInitialData();
-      
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-         for (const year of fiscalYears) {
-          if (initialData[year] && parsedData[year]) {
-            initialData[year].incomeTarget = parsedData[year].incomeTarget || 60000;
-            initialData[year].savingsTarget = parsedData[year].savingsTarget || 25000;
+      const parsedMasterData = savedData ? JSON.parse(savedData) : null;
+      setMasterData(parsedMasterData);
 
-            for (const month of months) {
-                 if(initialData[year].monthly[month] && parsedData[year].monthly[month]) {
-                     const monthProfitPerc = parsedData[year].monthly[month].profitPercentage;
-                     const monthWithdrawals = parsedData[year].monthly[month].withdrawals;
-                     
-                     if (initialData[year].monthly[month].log.length > 0) {
-                        const totalMonthlyProfitPerc = Object.values(monthProfitPerc || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
-                        const totalMonthlyWithdrawal = Object.values(monthWithdrawals || {}).reduce((a: any,b: any) => Number(a)+Number(b), 0);
-
-                        const dailyWithdrawal = totalMonthlyWithdrawal > 0 && initialData[year].monthly[month].log.length > 0
-                            ? totalMonthlyWithdrawal / initialData[year].monthly[month].log.length
-                            : 0;
-
-                        initialData[year].monthly[month].log.forEach((day: DailyLog) => {
-                            day.return = String(totalMonthlyProfitPerc);
-                            day.withdrawals = parseFloat(dailyWithdrawal.toFixed(2));
-                        });
-                     }
-                 }
-             }
-          }
-        }
-      }
-      setPlannerData(runCalculations(initialData));
+      const initialData = generateInitialYearData(activeYear, parsedMasterData);
+      setYearData(runCalculations(initialData));
     } catch (error) {
       console.error("Failed to load or parse planner data:", error);
-      setPlannerData(generateInitialData());
+      const initialData = generateInitialYearData(activeYear, null);
+      setYearData(runCalculations(initialData));
     }
-  }, [runCalculations]);
+  }, [activeYear, runCalculations]);
   
-  const handleDailyDataChange = (year: string, month: string, dayIndex: number, field: keyof DailyLog, value: any) => {
-      setPlannerData(prev => {
+  const handleDailyDataChange = (month: string, dayIndex: number, field: keyof DailyLog, value: any) => {
+      setYearData(prev => {
         if (!prev) return null;
         
         const newData = JSON.parse(JSON.stringify(prev)); // Deep copy
-        const newLog = [...newData[year].monthly[month].log];
+        const newLog = [...newData.monthly[month].log];
         (newLog[dayIndex] as any)[field] = value;
-        newData[year].monthly[month].log = newLog;
+        newData.monthly[month].log = newLog;
 
         return runCalculations(newData);
       });
   };
 
-  if (!plannerData) {
+  const handleYearChange = (year: string) => {
+    setActiveYear(year);
+  }
+
+  if (!yearData) {
     return (
         <MainLayout>
           <div className="flex items-center justify-center h-full">Loading Planner Data...</div>
         </MainLayout>
     );
   }
-
-  const currentYearData = plannerData[activeYear];
   
   return (
     <MainLayout>
@@ -429,57 +386,52 @@ export default function PlannerPage() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue={activeYear} onValueChange={setActiveYear} className="w-full">
+        <Tabs defaultValue={activeYear} onValueChange={handleYearChange} className="w-full">
           <TabsList>
             {fiscalYears.map(year => <TabsTrigger key={year} value={year}>{year}</TabsTrigger>)}
           </TabsList>
 
-          {fiscalYears.map(year => (
-            <TabsContent key={year} value={year} className="space-y-6">
-              
+          <TabsContent value={activeYear} className="space-y-6">
+            <Card>
+              <CardHeader>
+                  <CardTitle>Master Yearly Summary - {activeYear}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <StatCard title="Opening Balance" value={`$${Object.values(yearData.openingBalance).reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                <StatCard title="Total Trades" value={String(yearData.totalTrades)} />
+                <StatCard title="Total Withdrawals" value={`$${yearData.totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                <StatCard title="Yearly Net P/L" value={`$${yearData.yearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={yearData.yearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
+                <StatCard title="Closing Balance" value={`$${Object.values(yearData.closingBalance).reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+              </CardContent>
+            </Card>
+
+            <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                    <CardTitle>Master Yearly Summary - {year}</CardTitle>
+                  <CardTitle>Yearly Targets</CardTitle>
+                  <CardDescription>Your progress towards your annual goals.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <StatCard title="Opening Balance" value={`$${Object.values(plannerData[year].openingBalance).reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                  <StatCard title="Total Trades" value={String(plannerData[year].totalTrades)} />
-                  <StatCard title="Total Withdrawals" value={`$${plannerData[year].totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                  <StatCard title="Yearly Net P/L" value={`$${plannerData[year].yearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={plannerData[year].yearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
-                  <StatCard title="Closing Balance" value={`$${Object.values(plannerData[year].closingBalance).reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                <CardContent className="space-y-4">
+                  <TargetBar title="Income Target" actual={yearData.yearlyNetPL} target={yearData.incomeTarget} />
+                  <TargetBar title="Savings Target" actual={yearData.yearlyNetPL - yearData.totalWithdrawals} target={yearData.savingsTarget} />
                 </CardContent>
               </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Visualizations</CardTitle>
+                  <CardDescription>Charts will be added here soon.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center text-muted-foreground h-40">
+                  <p>Charts coming soon!</p>
+                </CardContent>
+              </Card>
+            </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Yearly Targets</CardTitle>
-                    <CardDescription>Your progress towards your annual goals.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <TargetBar title="Income Target" actual={plannerData[year].yearlyNetPL} target={plannerData[year].incomeTarget} />
-                    <TargetBar title="Savings Target" actual={plannerData[year].yearlyNetPL - plannerData[year].totalWithdrawals} target={plannerData[year].savingsTarget} />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Visualizations</CardTitle>
-                    <CardDescription>Charts will be added here soon.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-center text-muted-foreground h-40">
-                    <p>Charts coming soon!</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <MonthlyPlanner 
-                year={year} 
-                yearData={plannerData[year]} 
-                onDataChange={handleDailyDataChange}
-              />
-
-            </TabsContent>
-          ))}
+            <MonthlyPlanner 
+              yearData={yearData} 
+              onDataChange={handleDailyDataChange}
+            />
+          </TabsContent>
         </Tabs>
       </div>
     </MainLayout>

@@ -1,5 +1,3 @@
-
-
 // --- Data Types ---
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -37,6 +35,7 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
         }
 
         let runningBalances = { ...newData[year].openingBalance };
+        let yearlyTotalWithdrawals = 0;
 
         // Iterate through each month to calculate the closing balance for the current year
         for (const month of months) {
@@ -50,6 +49,7 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
                 
                 // Update the running balance for the current account type
                 runningBalances[accType] = openingForMonth + profit - withdrawal;
+                yearlyTotalWithdrawals += withdrawal;
             });
         }
         
