@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Edit } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
@@ -27,20 +28,20 @@ interface YearlyData {
   monthly: { [key: string]: MonthlyData };
 }
 
-interface PlannerData {
+interface PlannerMasterDataState {
   [key: string]: YearlyData;
 }
 
 // --- Initial State ---
-const generateInitialData = (): PlannerData => {
-  const data: PlannerData = {};
+const generateInitialData = (): PlannerMasterDataState => {
+  const data: PlannerMasterDataState = {};
   let lastYearClosing = { "Forex Trading": 60000, "Online": 12000, "Indian Market": 8000 };
 
   for (const year of fiscalYears) {
     const monthly: { [key: string]: MonthlyData } = {};
     for (const month of months) {
        monthly[month] = {
-        withdrawals: { "Forex trading": 0, "Online": 0, "Indian market": 0 },
+        withdrawals: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
         profitPercentage: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }
       };
     }
@@ -48,17 +49,17 @@ const generateInitialData = (): PlannerData => {
     const openingBalance = { ...lastYearClosing };
     data[year] = {
       openingBalance,
-      closingBalance: { "Forex Trading": 10000, "Online": 5000, "Indian Market": 10000 },
+      closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }, // Will be calculated in planner
       monthly,
     };
-    // Placeholder for carry-over logic
-    lastYearClosing = { "Forex Trading": 135000, "Online": 0, "Indian Market": 0 };
+    // Placeholder for carry-over logic for next year's opening
+    lastYearClosing = { "Forex Trading": 0, "Online": 0, "Indian Market": 0 };
   }
   return data;
 };
 
 
-function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: number, month?: string) => void, onSave: () => void }) {
+function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: { year: string, yearData: YearlyData, onMasterDataChange: (year: string, section: string, key: string, value: number, month?: string) => void, onSave: () => void }) {
     const handleBalanceChange = (field: string, value: string) => {
         onMasterDataChange(year, 'openingBalance', field, parseFloat(value) || 0);
     }
@@ -72,9 +73,9 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
     }
 
     const totalWithdrawals = React.useMemo(() => {
-        const totals: Record<string, number> = { "Forex trading": 0, "Online": 0, "Indian market": 0, "Total": 0 };
+        const totals: Record<string, number> = { "Forex Trading": 0, "Online": 0, "Indian Market": 0, "Total": 0 };
         months.forEach(month => {
-            Object.keys(yearData.monthly.Jan.withdrawals).forEach(accType => {
+            accountTypes.forEach(accType => {
                  totals[accType] += yearData.monthly[month].withdrawals[accType] || 0;
             });
         });
@@ -100,19 +101,19 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Month</TableHead>
-                                {Object.keys(yearData.monthly.Jan.withdrawals).map(accType => <TableHead key={accType}>{accType}</TableHead>)}
+                                {accountTypes.map(accType => <TableHead key={accType}>{accType}</TableHead>)}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                              {months.map(month => (
                                 <TableRow key={month}>
                                     <TableCell className="font-medium">{month}-{year.substring(2)}</TableCell>
-                                    {Object.keys(yearData.monthly[month].withdrawals).map(accType => (
+                                    {accountTypes.map(accType => (
                                         <TableCell key={accType}>
                                             <Input
                                                 type="number"
                                                 className="w-24"
-                                                value={yearData.monthly[month].withdrawals[accType]}
+                                                value={yearData.monthly[month].withdrawals[accType] || 0}
                                                 onChange={(e) => handleWithdrawalChange(month, accType, e.target.value)}
                                             />
                                         </TableCell>
@@ -131,13 +132,12 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
                 <div className="space-y-8">
                     {/* Balances */}
                     <div className="space-y-2">
-                        <h3 className="font-semibold text-lg">Opening & Closing Balances</h3>
+                        <h3 className="font-semibold text-lg">Opening Balances</h3>
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Account</TableHead>
                                     <TableHead>Opening</TableHead>
-                                    <TableHead>Closing</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -147,7 +147,6 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
                                         <TableCell>
                                             <Input type="number" className="w-28" value={yearData.openingBalance[acc] || 0} onChange={e => handleBalanceChange(acc, e.target.value)} />
                                         </TableCell>
-                                        <TableCell>${(yearData.closingBalance[acc] || 0).toLocaleString()}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -158,7 +157,7 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
 
                 {/* Profit % Table */}
                 <div className="space-y-2">
-                    <h3 className="font-semibold text-lg">Profit %</h3>
+                    <h3 className="font-semibold text-lg">Target Profit %</h3>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -176,7 +175,7 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
                                                 type="number"
                                                 placeholder="%"
                                                 className="w-20"
-                                                value={yearData.monthly[month].profitPercentage[accType]}
+                                                value={yearData.monthly[month].profitPercentage[accType] || 0}
                                                 onChange={(e) => handleProfitChange(month, accType, e.target.value)}
                                             />
                                         </TableCell>
@@ -194,10 +193,27 @@ function PlannerMasterData({ year, yearData, onMasterDataChange, onSave }: { yea
 
 
 export default function PlannerMasterDataPage() {
-  const [plannerData, setPlannerData] = React.useState(generateInitialData);
+  const [plannerData, setPlannerData] = React.useState<PlannerMasterDataState | null>(null);
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    try {
+      const savedData = localStorage.getItem("plannerMasterData");
+      if (savedData) {
+        setPlannerData(JSON.parse(savedData));
+      } else {
+        setPlannerData(generateInitialData());
+      }
+    } catch (error) {
+      console.error("Failed to load or parse master data:", error);
+      setPlannerData(generateInitialData());
+    }
+  }, []);
+
   
   const handleMasterDataChange = (year: string, section: string, key: string, value: number, month?: string) => {
     setPlannerData(prev => {
+        if (!prev) return null;
         const newData = { ...prev };
         if (section === 'openingBalance') {
             newData[year].openingBalance[key] = value;
@@ -213,9 +229,30 @@ export default function PlannerMasterDataPage() {
   };
 
   const handleSaveChanges = () => {
-    // Here you would typically save to a backend/localStorage
-    console.log("Saving planner data:", plannerData);
-    alert("Planner data saved to console!");
+    try {
+        if (plannerData) {
+            localStorage.setItem("plannerMasterData", JSON.stringify(plannerData));
+            toast({
+                title: "Success",
+                description: "Planner master data saved successfully.",
+            });
+        }
+    } catch (error) {
+        console.error("Failed to save master data:", error);
+        toast({
+            title: "Error",
+            description: "Could not save planner data.",
+            variant: "destructive",
+        });
+    }
+  }
+
+  if (!plannerData) {
+      return (
+          <MainLayout>
+              <div className="flex items-center justify-center h-full">Loading...</div>
+          </MainLayout>
+      )
   }
 
   return (
@@ -233,7 +270,7 @@ export default function PlannerMasterDataPage() {
 
           {fiscalYears.map(year => (
             <TabsContent key={year} value={year} className="space-y-6">
-              <PlannerMasterData 
+              <PlannerMasterDataForm 
                 year={year} 
                 yearData={plannerData[year]}
                 onMasterDataChange={handleMasterDataChange}
