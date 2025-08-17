@@ -1,15 +1,10 @@
 "use client"
 
+import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Legend } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart"
-import { mockSessionData } from "@/lib/data"
-
-const chartData = Object.entries(mockSessionData).map(([session, data]) => ({
-  session,
-  pnl: data.pnl,
-  fill: data.pnl >= 0 ? "hsl(var(--accent))" : "hsl(var(--destructive))",
-}));
+import { useTrades } from "@/context/trade-provider"
 
 const chartConfig = {
   pnl: {
@@ -26,6 +21,29 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function SessionPerformanceChart() {
+  const { trades } = useTrades();
+
+  const chartData = React.useMemo(() => {
+     const sessionData: Record<string, {pnl: number}> = {
+      "Asian": { pnl: 0 },
+      "London": { pnl: 0 },
+      "New York": { pnl: 0 },
+    };
+
+    trades.forEach(trade => {
+      if (trade.session && sessionData[trade.session]) {
+        sessionData[trade.session].pnl += trade.profit_usd;
+      }
+    });
+
+    return Object.entries(sessionData).map(([session, data]) => ({
+      session,
+      pnl: data.pnl,
+      fill: data.pnl >= 0 ? "hsl(var(--accent))" : "hsl(var(--destructive))",
+    }));
+
+  }, [trades]);
+
   return (
     <Card>
       <CardHeader>

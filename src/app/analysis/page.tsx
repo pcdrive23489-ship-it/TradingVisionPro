@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import MainLayout from "@/components/layout/main-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AiInsights } from "@/components/analysis/ai-insights";
@@ -7,28 +8,45 @@ import { MistakesChart } from "@/components/analysis/mistakes-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart"
-import { mockTrades } from "@/lib/data"
 import { Progress } from "@/components/ui/progress";
-
-const profitabilityByPair = mockTrades.reduce((acc, trade) => {
-    if (!acc[trade.pair]) {
-        acc[trade.pair] = 0;
-    }
-    acc[trade.pair] += trade.profit;
-    return acc;
-}, {} as Record<string, number>);
-
-const profitabilityChartData = Object.entries(profitabilityByPair).map(([pair, pnl]) => ({
-    pair,
-    pnl,
-    fill: pnl >= 0 ? "hsl(var(--accent))" : "hsl(var(--destructive))",
-}));
+import { useTrades } from "@/context/trade-provider";
 
 const chartConfig = {
   pnl: { label: "PNL" },
 } satisfies ChartConfig
 
 export default function AnalysisPage() {
+  const { trades } = useTrades();
+
+  const profitabilityByPair = React.useMemo(() => trades.reduce((acc, trade) => {
+      if (!acc[trade.symbol]) {
+          acc[trade.symbol] = 0;
+      }
+      acc[trade.symbol] += trade.profit_usd;
+      return acc;
+  }, {} as Record<string, number>), [trades]);
+
+  const profitabilityChartData = React.useMemo(() => Object.entries(profitabilityByPair).map(([pair, pnl]) => ({
+      pair,
+      pnl,
+      fill: pnl >= 0 ? "hsl(var(--accent))" : "hsl(var(--destructive))",
+  })), [profitabilityByPair]);
+
+  const { avgRiskReward, winRate } = React.useMemo(() => {
+    const totalTrades = trades.length;
+    if (totalTrades === 0) return { avgRiskReward: 0, winRate: 0 };
+    
+    const winningTrades = trades.filter(t => t.profit_usd > 0);
+    const winRate = (winningTrades.length / totalTrades) * 100;
+    
+    const totalRR = trades.reduce((sum, t) => sum + (t.riskRewardRatio || 0), 0);
+    const tradesWithRR = trades.filter(t => t.riskRewardRatio).length;
+    const avgRiskReward = tradesWithRR > 0 ? totalRR / tradesWithRR : 0;
+
+    return { avgRiskReward, winRate };
+  }, [trades]);
+
+
   return (
     <MainLayout>
        <div className="space-y-6">
@@ -54,17 +72,17 @@ export default function AnalysisPage() {
                             <div>
                                 <div className="flex justify-between mb-1">
                                     <h4 className="text-sm font-medium">Average Risk/Reward</h4>
-                                    <span className="text-sm">2.1 : 1</span>
+                                    <span className="text-sm">{avgRiskReward.toFixed(2)} : 1</span>
                                 </div>
-                                <Progress value={70} />
+                                <Progress value={(avgRiskReward / 3) * 100} />
                                 <p className="text-xs text-muted-foreground mt-1">Target: 3:1</p>
                             </div>
                              <div>
                                 <div className="flex justify-between mb-1">
                                     <h4 className="text-sm font-medium">Win Rate</h4>
-                                    <span className="text-sm">65%</span>
+                                    <span className="text-sm">{winRate.toFixed(1)}%</span>
                                 </div>
-                                <Progress value={65} className="[&>*]:bg-accent" />
+                                <Progress value={winRate} className="[&>*]:bg-accent" />
                                 <p className="text-xs text-muted-foreground mt-1">Target: 60%</p>
                             </div>
                         </CardContent>

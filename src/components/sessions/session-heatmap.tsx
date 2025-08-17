@@ -4,19 +4,11 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { useTrades } from "@/context/trade-provider"
 
 const hours = Array.from({ length: 24 }, (_, i) => i);
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const mockHeatmapData: Record<string, { pnl: number, trades: number }> = {
-    "1-2": { pnl: 50, trades: 2 },
-    "1-3": { pnl: -30, trades: 1 },
-    "2-8": { pnl: 120, trades: 3 },
-    "2-9": { pnl: 80, trades: 1 },
-    "3-14": { pnl: 250, trades: 4 },
-    "3-15": { pnl: -100, trades: 2 },
-    "4-16": { pnl: 300, trades: 2 },
-};
 
 const getColorClass = (pnl: number | undefined) => {
     if (pnl === undefined) return "bg-muted/40 hover:bg-muted";
@@ -29,6 +21,24 @@ const getColorClass = (pnl: number | undefined) => {
 
 
 export function SessionHeatmap() {
+    const { trades } = useTrades();
+
+    const heatmapData = React.useMemo(() => {
+        const data: Record<string, { pnl: number, trades: number }> = {};
+        trades.forEach(trade => {
+            const date = new Date(trade.closing_time_utc);
+            const dayIndex = date.getDay();
+            const hour = date.getHours();
+            const key = `${dayIndex}-${hour}`;
+            if (!data[key]) {
+                data[key] = { pnl: 0, trades: 0 };
+            }
+            data[key].pnl += trade.profit_usd;
+            data[key].trades += 1;
+        });
+        return data;
+    }, [trades]);
+
     return (
         <Card>
             <CardHeader>
@@ -50,7 +60,7 @@ export function SessionHeatmap() {
                                     {days.map((day, dayIndex) => (
                                         <React.Fragment key={day}>
                                             {hours.map(hour => {
-                                                const data = mockHeatmapData[`${dayIndex}-${hour}`];
+                                                const data = heatmapData[`${dayIndex}-${hour}`];
                                                 return (
                                                     <Tooltip key={`${day}-${hour}`}>
                                                         <TooltipTrigger asChild>

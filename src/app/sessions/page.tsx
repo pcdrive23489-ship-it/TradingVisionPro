@@ -1,19 +1,23 @@
+"use client"
+
+import * as React from "react"
 import MainLayout from "@/components/layout/main-layout"
 import { SessionHeatmap } from "@/components/sessions/session-heatmap"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { mockTrades } from "@/lib/data"
 import { Session } from "@/lib/types"
-
-const sessionTrades = (session: Session) => mockTrades.filter(t => t.session === session);
+import { useTrades } from "@/context/trade-provider"
 
 const SessionTradeList = ({ session }: { session: Session }) => {
-    const trades = sessionTrades(session);
-    if (trades.length === 0) {
+    const { trades } = useTrades();
+    const sessionTrades = trades.filter(t => t.session === session);
+
+    if (sessionTrades.length === 0) {
         return <p className="text-muted-foreground text-center py-8">No trades in this session.</p>
     }
+
     return (
         <Table>
             <TableHeader>
@@ -25,18 +29,18 @@ const SessionTradeList = ({ session }: { session: Session }) => {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {trades.map((trade) => (
-                    <TableRow key={trade.id}>
-                        <TableCell className="font-medium">{trade.pair}</TableCell>
+                {sessionTrades.map((trade, index) => (
+                    <TableRow key={`${trade.ticket}-${index}`}>
+                        <TableCell className="font-medium">{trade.symbol}</TableCell>
                         <TableCell>
-                            <Badge variant={trade.direction === "buy" ? "default" : "destructive"} className={`${trade.direction === "buy" ? "bg-primary" : "bg-destructive"}`}>
-                                {trade.direction}
+                           <Badge variant={trade.type === 'buy' ? 'outline' : 'destructive'} className={`capitalize ${trade.type === 'buy' ? 'border-primary text-primary' : ''}`}>
+                                {trade.type}
                             </Badge>
                         </TableCell>
-                        <TableCell className={`text-right font-semibold ${trade.profit >= 0 ? "text-accent" : "text-destructive"}`}>
-                            ${trade.profit.toFixed(2)}
+                        <TableCell className={`text-right font-semibold ${trade.profit_usd >= 0 ? "text-accent" : "text-destructive"}`}>
+                            ${trade.profit_usd.toFixed(2)}
                         </TableCell>
-                        <TableCell>{new Date(trade.date).toLocaleString('en-GB')}</TableCell>
+                        <TableCell>{new Date(trade.closing_time_utc).toLocaleString('en-GB')}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>

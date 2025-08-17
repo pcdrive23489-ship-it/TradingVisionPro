@@ -2,7 +2,6 @@
 import * as React from 'react'
 import Image from "next/image"
 import MainLayout from "@/components/layout/main-layout"
-import { mockTrades } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,6 +16,7 @@ import { Edit, Trash2 } from 'lucide-react'
 import { Trade } from '@/lib/types'
 import { EditTradeDialog } from '@/components/journal/edit-trade-dialog'
 import { format } from 'date-fns'
+import { useTrades } from '@/context/trade-provider'
 
 function TradeCard({ trade }: { trade: Trade }) {
   const isProfit = trade.profit_usd >= 0;
@@ -84,7 +84,9 @@ function TradeCard({ trade }: { trade: Trade }) {
 
 export default function JournalPage() {
     const [searchTerm, setSearchTerm] = React.useState("")
-    const filteredTrades = mockTrades.filter(trade => 
+    const { trades } = useTrades();
+    
+    const filteredTrades = trades.filter(trade => 
         trade.symbol.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

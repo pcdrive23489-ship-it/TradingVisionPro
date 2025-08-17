@@ -8,10 +8,10 @@ import MainLayout from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { mockTrades } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import type { Trade } from "@/lib/types"
 import { format } from "date-fns"
+import { useTrades } from "@/context/trade-provider"
 
 // Function to convert array of objects to CSV
 const convertToCSV = (objArray: any[]) => {
@@ -54,7 +54,7 @@ const downloadCSV = (trades: Trade[]) => {
 export default function MasterDataPage() {
   const { toast } = useToast()
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [trades, setTrades] = React.useState<Trade[]>(mockTrades);
+  const { trades, setTrades } = useTrades();
 
 
   const handleExport = () => {

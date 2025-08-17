@@ -1,6 +1,4 @@
-import type { Trade, MarketData, Session } from "./types";
-
-export const mockTrades: Trade[] = [];
+import type { MarketData, Session } from "./types";
 
 export const mockMarketData: MarketData[] = [];
 
