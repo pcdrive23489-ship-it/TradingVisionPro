@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, BookText, Menu, LayoutDashboard, CandlestickChart, Target, Sheet } from "lucide-react";
+import { BarChart2, BookText, Menu, LayoutDashboard, CandlestickChart, Target, Sheet, Trophy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSidebar } from "../ui/sidebar";
@@ -11,7 +11,7 @@ import { useSidebar } from "../ui/sidebar";
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/journal", label: "Journal", icon: BookText },
-  { href: "/planner", label: "Planner", icon: Target },
+  { href: "/records", label: "Records", icon: Trophy },
   { href: "/analysis",label: "Analysis", icon: BarChart2 },
 ];
 

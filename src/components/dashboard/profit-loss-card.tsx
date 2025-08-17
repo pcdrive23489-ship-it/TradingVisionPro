@@ -21,40 +21,10 @@ export function ProfitLossCard() {
   const [activeTab, setActiveTab] = React.useState('all');
 
   const generateChartData = React.useCallback((period: 'day' | 'week' | 'month' | 'year' | 'all') => {
-    const now = new Date();
-    let startDate: Date | null = null;
-    let groupBy: (date: Date) => string;
-
-    switch (period) {
-      case 'day':
-        startDate = startOfDay(now);
-        groupBy = (date) => new Date(date.setMinutes(0, 0, 0)).toISOString(); // Group by hour
-        break;
-      case 'week':
-        startDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-        groupBy = (date) => startOfDay(date).toISOString(); // Group by day
-        break;
-      case 'month':
-        startDate = startOfMonth(now);
-        groupBy = (date) => startOfDay(date).toISOString(); // Group by day
-        break;
-      case 'year':
-        startDate = startOfYear(now);
-        groupBy = (date) => startOfMonth(date).toISOString(); // Group by month
-        break;
-      case 'all':
-      default:
-        // For all, we need a consistent key for grouping, let's use date
-        groupBy = (date) => startOfDay(date).toISOString(); 
-        break;
-    }
+    let sortedTrades = [...trades].sort((a,b) => new Date(a.closing_time_utc).getTime() - new Date(b.closing_time_utc).getTime());
     
-    const sortedTrades = [...trades].sort((a,b) => new Date(a.closing_time_utc).getTime() - new Date(b.closing_time_utc).getTime());
-    
-    const filteredTrades = startDate ? sortedTrades.filter(t => new Date(t.closing_time_utc) >= startDate!) : sortedTrades;
-
-    const pnlByGroup = filteredTrades.reduce((acc, trade) => {
-        const groupKey = groupBy(new Date(trade.closing_time_utc));
+    const pnlByGroup = sortedTrades.reduce((acc, trade) => {
+        const groupKey = startOfDay(new Date(trade.closing_time_utc)).toISOString(); // Group by day
         acc[groupKey] = (acc[groupKey] || 0) + (trade.profit_usd || 0);
         return acc;
     }, {} as Record<string, number>);
@@ -65,11 +35,9 @@ export function ProfitLossCard() {
       return { time: key, pnl: cumulativePnl };
     });
 
-    const total = filteredTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
-    const highestWin = filteredTrades.reduce((max, t) => Math.max(max, t.profit_usd || 0), 0);
-    const highestLoss = filteredTrades.reduce((min, t) => Math.min(min, t.profit_usd || 0), 0);
+    const total = sortedTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
     
-    return { data: chartData, total, highestWin, highestLoss };
+    return { data: chartData, total };
   }, [trades]);
 
   const periods = [
@@ -80,7 +48,25 @@ export function ProfitLossCard() {
     { value: "all", label: "All" },
   ];
 
-  const { data, total, highestWin, highestLoss } = React.useMemo(() => generateChartData(activeTab as any), [activeTab, generateChartData]);
+  const { data, total } = React.useMemo(() => {
+    const now = new Date();
+    let filteredTrades = trades;
+
+    if (activeTab !== 'all') {
+      let startDate: Date;
+      if (activeTab === 'day') startDate = startOfDay(now);
+      else if (activeTab === 'week') startDate = startOfWeek(now, { weekStartsOn: 1 });
+      else if (activeTab === 'month') startDate = startOfMonth(now);
+      else startDate = startOfYear(now);
+      
+      filteredTrades = trades.filter(t => new Date(t.closing_time_utc) >= startDate);
+    }
+    
+    const totalPnl = filteredTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
+    const chartResult = generateChartData(activeTab as any);
+
+    return { data: chartResult.data, total: totalPnl };
+  }, [activeTab, trades, generateChartData]);
 
   return (
     <Card>
@@ -99,20 +85,6 @@ export function ProfitLossCard() {
                         <p className={`text-3xl font-bold ${total >= 0 ? 'text-accent' : 'text-destructive'}`}>
                             ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Highest Win</p>
-                            <p className="text-xl font-semibold text-accent">
-                                ${highestWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Highest Loss</p>
-                            <p className="text-xl font-semibold text-destructive">
-                                ${highestLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
                     </div>
                 </div>
                 <ChartContainer config={chartConfig} className="h-40 w-full">
