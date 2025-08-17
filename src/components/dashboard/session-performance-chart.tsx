@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -32,7 +33,7 @@ export function SessionPerformanceChart() {
 
     trades.forEach(trade => {
       if (trade.session && sessionData[trade.session]) {
-        sessionData[trade.session].pnl += trade.profit_usd;
+        sessionData[trade.session].pnl += (trade.profit_usd || 0);
       }
     });
 

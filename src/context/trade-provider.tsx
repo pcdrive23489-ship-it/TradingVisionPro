@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -33,7 +34,10 @@ export function TradesProvider({ children }: { children: React.ReactNode }) {
         if (!trade.session) {
             const closingHour = new Date(trade.closing_time_utc).getUTCHours();
             // Basic session logic (can be refined)
-            if (closingHour >= 1 && closingHour < 9) trade.session = "Asian";
+            // Asian: 00:00 - 08:59 UTC
+            // London: 09:00 - 16:59 UTC
+            // New York: 17:00 - 23:59 UTC
+            if (closingHour >= 0 && closingHour < 9) trade.session = "Asian";
             else if (closingHour >= 9 && closingHour < 17) trade.session = "London";
             else trade.session = "New York";
         }

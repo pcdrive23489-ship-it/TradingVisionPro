@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -53,7 +54,7 @@ export function ProfitLossCard() {
     
     const pnlByGroup = filteredTrades.reduce((acc, trade) => {
         const groupKey = groupBy(new Date(trade.closing_time_utc));
-        acc[groupKey] = (acc[groupKey] || 0) + trade.profit_usd;
+        acc[groupKey] = (acc[groupKey] || 0) + (trade.profit_usd || 0);
         return acc;
     }, {} as Record<string, number>);
 
@@ -64,7 +65,7 @@ export function ProfitLossCard() {
       return { time: key, pnl: cumulativePnl };
     });
 
-    const total = filteredTrades.reduce((sum, t) => sum + t.profit_usd, 0);
+    const total = filteredTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
 
     return { data: chartData, total };
   }, [trades]);
