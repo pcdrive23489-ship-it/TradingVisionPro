@@ -18,12 +18,12 @@ import { EditTradeDialog } from '@/components/journal/edit-trade-dialog'
 import { format } from 'date-fns'
 import { useTrades } from '@/context/trade-provider'
 
-function TradeCard({ trade }: { trade: Trade }) {
+function TradeCard({ trade, index }: { trade: Trade, index: number }) {
   const isProfit = trade.profit_usd >= 0;
 
   return (
     <Card>
-      <AccordionItem value={String(trade.ticket)} className="border-b-0">
+      <AccordionItem value={`${trade.ticket}-${index}`} className="border-b-0">
         <AccordionTrigger className="p-4 hover:no-underline">
           <div className="flex-1 grid grid-cols-3 md:grid-cols-5 gap-4 text-left">
             <div className="font-medium">{trade.symbol}</div>
@@ -115,8 +115,8 @@ export default function JournalPage() {
             </div>
         </div>
         <Accordion type="single" collapsible className="w-full space-y-4">
-          {filteredTrades.map(trade => (
-            <TradeCard key={trade.ticket} trade={trade} />
+          {filteredTrades.map((trade, index) => (
+            <TradeCard key={`${trade.ticket}-${trade.closing_time_utc}-${index}`} trade={trade} index={index} />
           ))}
         </Accordion>
       </div>
