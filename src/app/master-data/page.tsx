@@ -99,7 +99,7 @@ export default function MasterDataPage() {
 
           // INR to USD conversion
           if (tradeObject.profit_inr) {
-            tradeObject.profit_usd = tradeObject.profit_inr / 88;
+            tradeObject.profit_usd = tradeObject.profit_inr / 89;
           }
           
           return tradeObject as Trade;
