@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -8,8 +9,9 @@ import { BottomNav } from "./bottom-nav"
 import { AddTradeDialog } from "../journal/add-trade-dialog"
 import { Button } from "../ui/button"
 import { Plus } from "lucide-react"
+import { ProtectedRoute } from "@/context/auth-provider"
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile()
   const [headerTitle, setHeaderTitle] = React.useState("Dashboard");
 
@@ -72,4 +74,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </div>
     </SidebarProvider>
   )
+}
+
+
+export default function MainLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <ProtectedRoute>
+            <MainLayoutContent>
+                {children}
+            </MainLayoutContent>
+        </ProtectedRoute>
+    )
 }

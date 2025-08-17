@@ -39,7 +39,7 @@ const convertToCSV = (objArray: any[]) => {
 
 
 export default function MasterDataPage() {
-  const { trades, setTrades } = useTrades();
+  const { trades, setTrades, deleteAllTrades, loading } = useTrades();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [newlyImportedTrades, setNewlyImportedTrades] = React.useState<Trade[] | null>(null);
@@ -117,31 +117,42 @@ export default function MasterDataPage() {
 
   const handleImportConfirm = (mode: 'replace' | 'append') => {
     if (!newlyImportedTrades) return;
+    
+    let updatedTrades: Trade[];
 
     if (mode === 'replace') {
-      setTrades(newlyImportedTrades);
+      updatedTrades = newlyImportedTrades;
        toast({
           title: "Import Successful",
           description: `Data replaced with ${newlyImportedTrades.length} new trades.`,
         });
     } else {
-      const combinedTrades = [...trades, ...newlyImportedTrades];
-      setTrades(combinedTrades);
+      updatedTrades = [...trades, ...newlyImportedTrades];
       toast({
           title: "Import Successful",
           description: `${newlyImportedTrades.length} trades appended to existing data.`,
         });
     }
+
+    setTrades(updatedTrades);
     setNewlyImportedTrades(null);
     setIsImportConfirmOpen(false);
   }
 
-  const handleDeleteAllData = () => {
-    setTrades([]);
-    toast({
-      title: "Data Cleared",
-      description: "All trading data has been deleted.",
-    });
+  const handleDeleteAllData = async () => {
+    try {
+        await deleteAllTrades();
+        toast({
+          title: "Data Cleared",
+          description: "All trading data has been deleted.",
+        });
+    } catch (error) {
+        toast({
+            title: "Error",
+            description: "Failed to delete trading data.",
+            variant: "destructive"
+        })
+    }
   };
 
 
@@ -237,13 +248,17 @@ export default function MasterDataPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {trades.map((trade, index) => (
+                {loading ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center">Loading trades...</TableCell>
+                    </TableRow>
+                ) : trades.map((trade, index) => (
                   <TableRow key={`${trade.ticket}-${trade.closing_time_utc}-${index}`}>
                     <TableCell className="font-medium">{trade.symbol}</TableCell>
                     <TableCell>{trade.type}</TableCell>
                     <TableCell>{trade.close_reason}</TableCell>
                     <TableCell>{format(new Date(trade.closing_time_utc), 'Pp')}</TableCell>
-                    <TableCell className={`text-right font-semibold ${trade.profit_usd >= 0 ? "text-accent" : "text-destructive"}`}>
+                    <TableCell className={`text-right font-semibold ${(trade.profit_usd || 0) >= 0 ? "text-accent" : "text-destructive"}`}>
                       ${(trade.profit_usd || 0).toFixed(2)}
                     </TableCell>
                   </TableRow>
