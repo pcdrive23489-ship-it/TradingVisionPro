@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { useTrades } from "@/context/trade-provider"
-import { startOfDay, startOfWeek, startOfMonth, startOfYear, format } from "date-fns"
+import { startOfDay, startOfWeek, startOfMonth, startOfYear, format, parseISO } from "date-fns"
 
 const chartConfig = {
   pnl: {
@@ -18,12 +18,11 @@ const chartConfig = {
 
 export function ProfitLossCard() {
   const { trades } = useTrades();
-  const [activeTab, setActiveTab] = React.useState('week');
+  const [activeTab, setActiveTab] = React.useState('all');
 
-  const generateChartData = React.useCallback((period: 'day' | 'week' | 'month' | 'year') => {
+  const generateChartData = React.useCallback((period: 'day' | 'week' | 'month' | 'year' | 'all') => {
     const now = new Date();
-    let startDate: Date;
-    let dataFormat: string;
+    let startDate: Date | null = null;
     let groupBy: (date: Date) => string;
 
     switch (period) {
@@ -43,13 +42,16 @@ export function ProfitLossCard() {
         startDate = startOfYear(now);
         groupBy = (date) => format(date, "MMM");
         break;
+      case 'all':
       default:
-        startDate = startOfWeek(now);
-        groupBy = (date) => format(date, "EEE");
+        groupBy = (date) => format(date, "yyyy-MM-dd");
+        break;
     }
-
-    const filteredTrades = trades.filter(t => new Date(t.closing_time_utc) >= startDate);
     
+    const sortedTrades = [...trades].sort((a,b) => new Date(a.closing_time_utc).getTime() - new Date(b.closing_time_utc).getTime());
+    
+    const filteredTrades = startDate ? sortedTrades.filter(t => new Date(t.closing_time_utc) >= startDate!) : sortedTrades;
+
     const pnlByGroup = filteredTrades.reduce((acc, trade) => {
         const groupKey = groupBy(new Date(trade.closing_time_utc));
         acc[groupKey] = (acc[groupKey] || 0) + (trade.profit_usd || 0);
@@ -72,6 +74,7 @@ export function ProfitLossCard() {
     { value: "week", label: "Week" },
     { value: "month", label: "Month" },
     { value: "year", label: "Year" },
+    { value: "all", label: "All" },
   ];
 
   const { data, total } = React.useMemo(() => generateChartData(activeTab as any), [activeTab, generateChartData]);
@@ -83,7 +86,7 @@ export function ProfitLossCard() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             {periods.map((p) => <TabsTrigger key={p.value} value={p.value}>{p.label}</TabsTrigger>)}
           </TabsList>
             <TabsContent value={activeTab} className="mt-4">
