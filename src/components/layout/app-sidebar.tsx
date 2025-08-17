@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database, Target, Save, Trophy } from "lucide-react"
+import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Database, Target, Save, Trophy } from "lucide-react"
 
 import {
   Sidebar,
@@ -16,6 +16,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Logo } from "@/components/icons"
+import { ThemeToggle } from "../theme-toggle"
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -61,13 +62,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-             <SidebarMenuButton icon={<Settings />} tooltip="Settings">
-              Settings
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <ThemeToggle />
       </SidebarFooter>
     </Sidebar>
   )
