@@ -2,8 +2,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database, Target, Save, Trophy, LogOut } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { BarChart2, BookText, CandlestickChart, Clock, LayoutDashboard, Settings, Database, Target, Save, Trophy } from "lucide-react"
 
 import {
   Sidebar,
@@ -16,9 +16,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Logo } from "@/components/icons"
-import { useAuth } from "@/context/auth-provider"
-import { useToast } from "@/hooks/use-toast"
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -35,27 +32,6 @@ const menuItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar();
-  const { user, logout } = useAuth();
-  const router = useRouter();
-  const { toast } = useToast();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.push('/login');
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out."
-      })
-    } catch (error) {
-        toast({
-            title: "Logout Failed",
-            description: "Could not log you out. Please try again.",
-            variant: "destructive"
-        })
-    }
-  }
-
 
   return (
     <Sidebar>
@@ -85,24 +61,10 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center gap-3 p-3">
-             <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.photoURL || undefined} alt="User avatar" />
-                <AvatarFallback>{user?.email?.[0].toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-semibold truncate">{user?.email}</p>
-            </div>
-        </div>
         <SidebarMenu>
           <SidebarMenuItem>
              <SidebarMenuButton icon={<Settings />} tooltip="Settings">
               Settings
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
-             <SidebarMenuButton icon={<LogOut />} tooltip="Logout" onClick={handleLogout}>
-              Logout
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

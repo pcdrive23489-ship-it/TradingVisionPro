@@ -9,7 +9,6 @@ import { BottomNav } from "./bottom-nav"
 import { AddTradeDialog } from "../journal/add-trade-dialog"
 import { Button } from "../ui/button"
 import { Plus } from "lucide-react"
-import { ProtectedRoute } from "@/context/auth-provider"
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile()
@@ -79,10 +78,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     return (
-        <ProtectedRoute>
-            <MainLayoutContent>
-                {children}
-            </MainLayoutContent>
-        </ProtectedRoute>
+        <MainLayoutContent>
+            {children}
+        </MainLayoutContent>
     )
 }

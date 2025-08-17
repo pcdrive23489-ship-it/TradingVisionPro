@@ -3,7 +3,6 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { TradesProvider } from '@/context/trade-provider';
-import { AuthProvider } from '@/context/auth-provider';
 
 export const metadata: Metadata = {
   title: 'TradeVision Journal',
@@ -23,12 +22,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet"></link>
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
-            <TradesProvider>
-                {children}
-            </TradesProvider>
-            <Toaster />
-        </AuthProvider>
+        <TradesProvider>
+            {children}
+        </TradesProvider>
+        <Toaster />
       </body>
     </html>
   );

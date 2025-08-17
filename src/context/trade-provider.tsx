@@ -2,53 +2,43 @@
 "use client";
 
 import * as React from "react";
-import { collection, doc, getDocs, writeBatch, setDoc, deleteDoc } from "firebase/firestore";
 import type { Trade } from "@/lib/types";
-import { db } from "@/lib/firebase";
-import { useAuth } from "./auth-provider";
+import { mockTrades } from "@/lib/data"; // Assuming you might want mock data again
 
 interface TradesContextType {
   trades: Trade[];
   setTrades: (trades: Trade[]) => void;
-  addTrade: (trade: Omit<Trade, 'ticket'>) => Promise<void>;
-  updateTrade: (trade: Trade) => Promise<void>;
-  deleteTrade: (ticket: number) => Promise<void>;
-  deleteAllTrades: () => Promise<void>;
+  addTrade: (trade: Omit<Trade, 'ticket'>) => void;
+  updateTrade: (trade: Trade) => void;
+  deleteTrade: (ticket: number) => void;
+  deleteAllTrades: () => void;
   loading: boolean;
 }
 
 const TradesContext = React.createContext<TradesContextType | undefined>(undefined);
 
 export function TradesProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
   const [trades, setTradesState] = React.useState<Trade[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchTrades = async () => {
-      if (!user) {
-        setTradesState([]);
-        setLoading(false);
-        return;
-      };
-      setLoading(true);
-      try {
-        const tradesCollection = collection(db, "users", user.uid, "trades");
-        const snapshot = await getDocs(tradesCollection);
-        const userTrades = snapshot.docs.map(doc => doc.data() as Trade);
-        setTradesState(userTrades);
-      } catch (error) {
-        console.error("Failed to load trades from Firestore", error);
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      const savedTrades = localStorage.getItem("trades");
+      if (savedTrades) {
+        setTradesState(JSON.parse(savedTrades));
+      } else {
+        // Optional: initialize with mock data if no saved data found
+        // setTradesState(mockTrades);
       }
-    };
+    } catch (error) {
+      console.error("Failed to load trades from localStorage", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    fetchTrades();
-  }, [user]);
-
-  const setTrades = async (newTrades: Trade[]) => {
-     if (!user) return;
+  const setTrades = (newTrades: Trade[]) => {
      setLoading(true);
     try {
        const tradesWithCalculations = newTrades.map(trade => {
@@ -69,58 +59,37 @@ export function TradesProvider({ children }: { children: React.ReactNode }) {
             return trade;
       });
 
-      const tradesCollection = collection(db, "users", user.uid, "trades");
-      const batch = writeBatch(db);
-      
-      // Delete existing trades
-      const snapshot = await getDocs(tradesCollection);
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      
-      // Add new trades
-      tradesWithCalculations.forEach(trade => {
-        const docRef = doc(tradesCollection, String(trade.ticket));
-        batch.set(docRef, trade);
-      });
-      
-      await batch.commit();
+      localStorage.setItem("trades", JSON.stringify(tradesWithCalculations));
       setTradesState(tradesWithCalculations);
     } catch (error) {
-      console.error("Failed to save trades to Firestore", error);
+      console.error("Failed to save trades to localStorage", error);
     } finally {
         setLoading(false);
     }
   };
 
-  const addTrade = async (tradeData: Omit<Trade, 'ticket'>) => {
-    if (!user) return;
+  const addTrade = (tradeData: Omit<Trade, 'ticket'>) => {
     const newTicket = new Date().getTime(); // Simple unique ID
     const newTrade = { ...tradeData, ticket: newTicket } as Trade;
-    const docRef = doc(db, "users", user.uid, "trades", String(newTrade.ticket));
-    await setDoc(docRef, newTrade);
-    setTradesState(prev => [...prev, newTrade]);
+    const updatedTrades = [...trades, newTrade];
+    localStorage.setItem("trades", JSON.stringify(updatedTrades));
+    setTradesState(updatedTrades);
   };
   
-  const updateTrade = async (trade: Trade) => {
-    if (!user) return;
-    const docRef = doc(db, "users", user.uid, "trades", String(trade.ticket));
-    await setDoc(docRef, trade, { merge: true });
-    setTradesState(prev => prev.map(t => t.ticket === trade.ticket ? trade : t));
+  const updateTrade = (trade: Trade) => {
+    const updatedTrades = trades.map(t => t.ticket === trade.ticket ? trade : t);
+    localStorage.setItem("trades", JSON.stringify(updatedTrades));
+    setTradesState(updatedTrades);
   };
 
   const deleteTrade = async (ticket: number) => {
-     if (!user) return;
-     const docRef = doc(db, "users", user.uid, "trades", String(ticket));
-     await deleteDoc(docRef);
-     setTradesState(prev => prev.filter(t => t.ticket !== ticket));
+     const updatedTrades = trades.filter(t => t.ticket !== ticket);
+     localStorage.setItem("trades", JSON.stringify(updatedTrades));
+     setTradesState(updatedTrades);
   }
 
-  const deleteAllTrades = async () => {
-    if (!user) return;
-    const tradesCollection = collection(db, "users", user.uid, "trades");
-    const snapshot = await getDocs(tradesCollection);
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
+  const deleteAllTrades = () => {
+    localStorage.removeItem("trades");
     setTradesState([]);
   }
   
