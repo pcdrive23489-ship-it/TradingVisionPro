@@ -27,10 +27,8 @@ yarn-error.log*
 pnpm-debug.log*
 
 # local env files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env
+.env*.local
 
 # vercel
 .vercel
@@ -39,5 +37,8 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# studio
-.studio
+# patch-package
+/patches
+
+# Firebase
+firebase-debug.log
