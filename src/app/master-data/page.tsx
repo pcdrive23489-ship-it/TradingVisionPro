@@ -42,6 +42,8 @@ export default function MasterDataPage() {
   const { trades, setTrades } = useTrades();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [newlyImportedTrades, setNewlyImportedTrades] = React.useState<Trade[] | null>(null);
+  const [isImportConfirmOpen, setIsImportConfirmOpen] = React.useState(false);
 
   // Function to trigger CSV download
   const downloadCSV = (trades: Trade[]) => {
@@ -102,15 +104,37 @@ export default function MasterDataPage() {
           
           return tradeObject as Trade;
         });
-        setTrades(newTrades);
-        toast({
-          title: "Import Successful",
-          description: `${file.name} has been imported.`,
-        });
+        setNewlyImportedTrades(newTrades);
+        setIsImportConfirmOpen(true);
       };
       reader.readAsText(file);
+       // Reset file input so the same file can be selected again
+       if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
+
+  const handleImportConfirm = (mode: 'replace' | 'append') => {
+    if (!newlyImportedTrades) return;
+
+    if (mode === 'replace') {
+      setTrades(newlyImportedTrades);
+       toast({
+          title: "Import Successful",
+          description: `Data replaced with ${newlyImportedTrades.length} new trades.`,
+        });
+    } else {
+      const combinedTrades = [...trades, ...newlyImportedTrades];
+      setTrades(combinedTrades);
+      toast({
+          title: "Import Successful",
+          description: `${newlyImportedTrades.length} trades appended to existing data.`,
+        });
+    }
+    setNewlyImportedTrades(null);
+    setIsImportConfirmOpen(false);
+  }
 
   const handleDeleteAllData = () => {
     setTrades([]);
@@ -174,6 +198,27 @@ export default function MasterDataPage() {
                 </AlertDialog>
             </CardContent>
         </Card>
+
+        {/* Import Confirmation Dialog */}
+        <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Import Options</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You have uploaded a file with {newlyImportedTrades?.length || 0} trades. How would you like to import this data?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setNewlyImportedTrades(null)}>Cancel</AlertDialogCancel>
+                <Button variant="outline" onClick={() => handleImportConfirm('append')}>
+                  Append
+                </Button>
+                <AlertDialogAction onClick={() => handleImportConfirm('replace')}>
+                  Replace
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
 
         <Card>
           <CardHeader>
