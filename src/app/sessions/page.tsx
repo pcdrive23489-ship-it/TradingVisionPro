@@ -32,7 +32,7 @@ const SessionTradeList = ({ session }: { session: Session }) => {
             </TableHeader>
             <TableBody>
                 {sessionTrades.map((trade, index) => (
-                    <TableRow key={`${trade.ticket}-${index}`}>
+                    <TableRow key={`${trade.ticket}-${trade.closing_time_utc}-${index}`}>
                         <TableCell className="font-medium">{trade.symbol}</TableCell>
                         <TableCell>
                            <Badge variant={trade.type === 'buy' ? 'outline' : 'destructive'} className={`capitalize ${trade.type === 'buy' ? 'border-primary text-primary' : ''}`}>
@@ -40,7 +40,7 @@ const SessionTradeList = ({ session }: { session: Session }) => {
                             </Badge>
                         </TableCell>
                         <TableCell className={`text-right font-semibold ${trade.profit_usd >= 0 ? "text-accent" : "text-destructive"}`}>
-                            ${trade.profit_usd.toFixed(2)}
+                            ${(trade.profit_usd || 0).toFixed(2)}
                         </TableCell>
                         <TableCell>{new Date(trade.closing_time_utc).toLocaleString('en-GB')}</TableCell>
                     </TableRow>
