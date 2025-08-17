@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast"
 import type { Trade } from "@/lib/types"
 import { format } from "date-fns"
 import { useTrades } from "@/context/trade-provider"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 // Function to convert array of objects to CSV
 const convertToCSV = (objArray: any[]) => {
@@ -185,52 +184,12 @@ export default function MasterDataPage() {
                 <Button variant="outline" onClick={() => downloadCSV(trades)}>
                     <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
-                 <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete All Data
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete all your
-                        trading data from the application.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteAllData}>
-                        Continue
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                 <Button variant="destructive" onClick={deleteAllTrades}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete All Data
+                </Button>
             </CardContent>
         </Card>
-
-        {/* Import Confirmation Dialog */}
-        <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Import Options</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You have uploaded a file with {newlyImportedTrades?.length || 0} trades. How would you like to import this data?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setNewlyImportedTrades(null)}>Cancel</AlertDialogCancel>
-                <Button variant="outline" onClick={() => handleImportConfirm('append')}>
-                  Append
-                </Button>
-                <AlertDialogAction onClick={() => handleImportConfirm('replace')}>
-                  Replace
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
+        
         <Card>
           <CardHeader>
             <CardTitle>Trading History</CardTitle>
