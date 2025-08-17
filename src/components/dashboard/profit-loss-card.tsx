@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { useTrades } from "@/context/trade-provider"
-import { subDays, subWeeks, subMonths, subYears, startOfDay, startOfWeek, startOfMonth, startOfYear, format } from "date-fns"
+import { startOfDay, startOfWeek, startOfMonth, startOfYear, format } from "date-fns"
 
 const chartConfig = {
   pnl: {
@@ -18,6 +18,7 @@ const chartConfig = {
 
 export function ProfitLossCard() {
   const { trades } = useTrades();
+  const [activeTab, setActiveTab] = React.useState('week');
 
   const generateChartData = React.useCallback((period: 'day' | 'week' | 'month' | 'year') => {
     const now = new Date();
@@ -28,26 +29,23 @@ export function ProfitLossCard() {
     switch (period) {
       case 'day':
         startDate = startOfDay(now);
-        dataFormat = "HH:mm";
         groupBy = (date) => format(date, "HH");
         break;
       case 'week':
-        startDate = startOfWeek(now);
-        dataFormat = "EEE";
-         groupBy = (date) => format(date, "EEE");
+        startDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+        groupBy = (date) => format(date, "EEE");
         break;
       case 'month':
         startDate = startOfMonth(now);
-        dataFormat = "d";
         groupBy = (date) => format(date, "d");
         break;
       case 'year':
         startDate = startOfYear(now);
-        dataFormat = "MMM";
         groupBy = (date) => format(date, "MMM");
         break;
       default:
-        throw new Error("Invalid period");
+        startDate = startOfWeek(now);
+        groupBy = (date) => format(date, "EEE");
     }
 
     const filteredTrades = trades.filter(t => new Date(t.closing_time_utc) >= startDate);
@@ -58,7 +56,6 @@ export function ProfitLossCard() {
         return acc;
     }, {} as Record<string, number>);
 
-
     let cumulativePnl = 0;
     const chartData = Object.entries(pnlByGroup).map(([key, pnl]) => {
       cumulativePnl += pnl;
@@ -66,7 +63,7 @@ export function ProfitLossCard() {
     });
 
     const total = filteredTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
-
+    
     return { data: chartData, total };
   }, [trades]);
 
@@ -77,7 +74,6 @@ export function ProfitLossCard() {
     { value: "year", label: "Year" },
   ];
 
-  const [activeTab, setActiveTab] = React.useState('week');
   const { data, total } = React.useMemo(() => generateChartData(activeTab as any), [activeTab, generateChartData]);
 
   return (
@@ -90,25 +86,25 @@ export function ProfitLossCard() {
           <TabsList className="grid w-full grid-cols-4">
             {periods.map((p) => <TabsTrigger key={p.value} value={p.value}>{p.label}</TabsTrigger>)}
           </TabsList>
-            <TabsContent value={activeTab} forceMount>
+            <TabsContent value={activeTab} className="mt-4">
                 <div className="py-4">
+                    <p className="text-sm text-muted-foreground">Net P/L</p>
                     <p className={`text-3xl font-bold ${total >= 0 ? 'text-accent' : 'text-destructive'}`}>
                         ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    {/* Change calculation can be added here if historical data is available */}
                 </div>
                 <ChartContainer config={chartConfig} className="h-40 w-full">
                   <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="fillPnl" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-pnl)" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="var(--color-pnl)" stopOpacity={0.1} />
+                        <stop offset="5%" stopColor={total >= 0 ? "var(--color-pnl)" : "hsl(var(--destructive))"} stopOpacity={0.8} />
+                        <stop offset="95%" stopColor={total >= 0 ? "var(--color-pnl)" : "hsl(var(--destructive))"} stopOpacity={0.1} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/50" />
                     <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} hide />
                     <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                    <Area dataKey="pnl" type="natural" fill="url(#fillPnl)" stroke="var(--color-pnl)" stackId="a" />
+                    <Area dataKey="pnl" type="natural" fill="url(#fillPnl)" stroke={total >= 0 ? "var(--color-pnl)" : "hsl(var(--destructive))"} stackId="a" />
                   </AreaChart>
                 </ChartContainer>
              </TabsContent>
