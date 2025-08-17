@@ -1,3 +1,4 @@
+
 "use client"
 import * as React from 'react'
 import Image from "next/image"
@@ -19,7 +20,7 @@ import { format } from 'date-fns'
 import { useTrades } from '@/context/trade-provider'
 
 function TradeCard({ trade, index }: { trade: Trade, index: number }) {
-  const isProfit = trade.profit_usd >= 0;
+  const isProfit = (trade.profit_usd || 0) >= 0;
 
   return (
     <Card>
@@ -34,7 +35,7 @@ function TradeCard({ trade, index }: { trade: Trade, index: number }) {
               </Badge>
             </div>
             <div className={`font-semibold ${isProfit ? 'text-accent' : 'text-destructive'}`}>
-              {isProfit ? '+' : ''}${trade.profit_usd.toFixed(2)}
+              {isProfit ? '+' : ''}${(trade.profit_usd || 0).toFixed(2)}
             </div>
             <div className="hidden md:block">{trade.close_reason}</div>
           </div>
