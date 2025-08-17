@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { useTrades } from "@/context/trade-provider"
-import { startOfDay, startOfWeek, startOfMonth, startOfYear, format, parseISO } from "date-fns"
+import { startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns"
 
 const chartConfig = {
   pnl: {
@@ -28,23 +28,24 @@ export function ProfitLossCard() {
     switch (period) {
       case 'day':
         startDate = startOfDay(now);
-        groupBy = (date) => format(date, "HH");
+        groupBy = (date) => new Date(date.setMinutes(0, 0, 0)).toISOString(); // Group by hour
         break;
       case 'week':
         startDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-        groupBy = (date) => format(date, "EEE");
+        groupBy = (date) => startOfDay(date).toISOString(); // Group by day
         break;
       case 'month':
         startDate = startOfMonth(now);
-        groupBy = (date) => format(date, "d");
+        groupBy = (date) => startOfDay(date).toISOString(); // Group by day
         break;
       case 'year':
         startDate = startOfYear(now);
-        groupBy = (date) => format(date, "MMM");
+        groupBy = (date) => startOfMonth(date).toISOString(); // Group by month
         break;
       case 'all':
       default:
-        groupBy = (date) => format(date, "yyyy-MM-dd");
+        // For all, we need a consistent key for grouping, let's use date
+        groupBy = (date) => startOfDay(date).toISOString(); 
         break;
     }
     
@@ -59,14 +60,16 @@ export function ProfitLossCard() {
     }, {} as Record<string, number>);
 
     let cumulativePnl = 0;
-    const chartData = Object.entries(pnlByGroup).map(([key, pnl]) => {
+    const chartData = Object.entries(pnlByGroup).sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime()).map(([key, pnl]) => {
       cumulativePnl += pnl;
       return { time: key, pnl: cumulativePnl };
     });
 
     const total = filteredTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
+    const highestWin = filteredTrades.reduce((max, t) => Math.max(max, t.profit_usd || 0), 0);
+    const highestLoss = filteredTrades.reduce((min, t) => Math.min(min, t.profit_usd || 0), 0);
     
-    return { data: chartData, total };
+    return { data: chartData, total, highestWin, highestLoss };
   }, [trades]);
 
   const periods = [
@@ -77,7 +80,7 @@ export function ProfitLossCard() {
     { value: "all", label: "All" },
   ];
 
-  const { data, total } = React.useMemo(() => generateChartData(activeTab as any), [activeTab, generateChartData]);
+  const { data, total, highestWin, highestLoss } = React.useMemo(() => generateChartData(activeTab as any), [activeTab, generateChartData]);
 
   return (
     <Card>
@@ -90,11 +93,27 @@ export function ProfitLossCard() {
             {periods.map((p) => <TabsTrigger key={p.value} value={p.value}>{p.label}</TabsTrigger>)}
           </TabsList>
             <TabsContent value={activeTab} className="mt-4">
-                <div className="py-4">
-                    <p className="text-sm text-muted-foreground">Net P/L</p>
-                    <p className={`text-3xl font-bold ${total >= 0 ? 'text-accent' : 'text-destructive'}`}>
-                        ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
+                <div className="py-4 space-y-2">
+                    <div>
+                        <p className="text-sm text-muted-foreground">Net P/L</p>
+                        <p className={`text-3xl font-bold ${total >= 0 ? 'text-accent' : 'text-destructive'}`}>
+                            ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Highest Win</p>
+                            <p className="text-xl font-semibold text-accent">
+                                ${highestWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Highest Loss</p>
+                            <p className="text-xl font-semibold text-destructive">
+                                ${highestLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                        </div>
+                    </div>
                 </div>
                 <ChartContainer config={chartConfig} className="h-40 w-full">
                   <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
