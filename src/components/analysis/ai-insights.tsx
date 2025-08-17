@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -29,8 +30,8 @@ export function AiInsights() {
             exitPrice: t.closing_price,
             pips: t.pips || 0,
             session: t.session || 'London', // Default to a session if not present
-            mistakes: t.mistakes,
-            riskRewardRatio: t.riskRewardRatio,
+            mistakes: t.mistake_1 ? [t.mistake_1] : [],
+            riskRewardRatio: t.risk_reward_ratio,
           }))
         }
       };

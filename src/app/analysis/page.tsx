@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -37,13 +38,13 @@ export default function AnalysisPage() {
     if (totalTrades === 0) return { avgRiskReward: 0, winRate: 0 };
     
     const winningTrades = trades.filter(t => t.profit_usd > 0);
-    const winRate = (winningTrades.length / totalTrades) * 100;
+    const winRateValue = (winningTrades.length / totalTrades) * 100;
     
-    const totalRR = trades.reduce((sum, t) => sum + (t.riskRewardRatio || 0), 0);
-    const tradesWithRR = trades.filter(t => t.riskRewardRatio).length;
-    const avgRiskReward = tradesWithRR > 0 ? totalRR / tradesWithRR : 0;
+    const tradesWithRR = trades.filter(t => t.risk_reward_ratio);
+    const totalRR = tradesWithRR.reduce((sum, t) => sum + (t.risk_reward_ratio || 0), 0);
+    const avgRiskRewardValue = tradesWithRR.length > 0 ? totalRR / tradesWithRR.length : 0;
 
-    return { avgRiskReward, winRate };
+    return { avgRiskReward: avgRiskRewardValue, winRate: winRateValue };
   }, [trades]);
 
 

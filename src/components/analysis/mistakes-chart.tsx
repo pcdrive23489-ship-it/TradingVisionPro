@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,9 +24,11 @@ export function MistakesChart() {
   const { trades } = useTrades();
 
   const mistakeCounts = React.useMemo(() => {
-    const allMistakes = trades.flatMap(trade => trade.mistakes || []);
+    const allMistakes = trades.map(trade => trade.mistake_1).filter(Boolean); // Use mistake_1 and filter out empty values
     return allMistakes.reduce((acc, mistake) => {
-      acc[mistake] = (acc[mistake] || 0) + 1;
+      if (mistake) {
+        acc[mistake] = (acc[mistake] || 0) + 1;
+      }
       return acc;
     }, {} as Record<string, number>);
   }, [trades]);

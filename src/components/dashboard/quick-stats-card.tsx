@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -29,9 +30,9 @@ export function QuickStatsCard() {
     const winningTrades = trades.filter(t => t.profit_usd > 0);
     const winRate = (winningTrades.length / totalTrades) * 100;
     
-    const totalRR = trades.reduce((sum, t) => sum + (t.riskRewardRatio || 0), 0);
-    const tradesWithRR = trades.filter(t => t.riskRewardRatio).length;
-    const avgRiskReward = tradesWithRR > 0 ? totalRR / tradesWithRR : 0;
+    const tradesWithRR = trades.filter(t => t.risk_reward_ratio);
+    const totalRR = tradesWithRR.reduce((sum, t) => sum + (t.risk_reward_ratio || 0), 0);
+    const avgRiskReward = tradesWithRR.length > 0 ? totalRR / tradesWithRR.length : 0;
     
     const pnlByPair = trades.reduce((acc, trade) => {
       acc[trade.symbol] = (acc[trade.symbol] || 0) + trade.profit_usd;
