@@ -274,10 +274,9 @@ export default function PlannerPage() {
         let lastDayClosing = lastMonthClosing;
         const monthData = newData.monthly[month];
         
-        const monthlyProfitPerc = monthData.profitPercentage[accountType] || 0;
-        const totalDays = monthData.log.length;
-        const dailyProfitPerc = totalDays > 0 ? monthlyProfitPerc / totalDays : 0;
+        const dailyProfitPerc = monthData.profitPercentage[accountType] || 0;
         
+        const totalDays = monthData.log.length;
         const totalMonthlyWithdrawal = monthData.withdrawals[accountType] || 0;
         const dailyWithdrawal = totalDays > 0 ? totalMonthlyWithdrawal / totalDays : 0;
         

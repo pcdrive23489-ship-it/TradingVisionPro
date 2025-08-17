@@ -295,7 +295,7 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
 
                 {/* Profit % Table */}
                 <div className="space-y-2">
-                    <h3 className="font-semibold text-lg">Target Monthly Profit %</h3>
+                    <h3 className="font-semibold text-lg">Target Daily Profit %</h3>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -430,3 +430,5 @@ export default function PlannerMasterDataPage() {
     </MainLayout>
   )
 }
+
+    
