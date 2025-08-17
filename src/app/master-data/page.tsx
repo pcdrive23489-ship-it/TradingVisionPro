@@ -37,35 +37,32 @@ const convertToCSV = (objArray: any[]) => {
     return str;
 }
 
-// Function to trigger CSV download
-const downloadCSV = (trades: Trade[]) => {
-    const csvString = convertToCSV(trades);
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-t;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "trading_history.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
 
 export default function MasterDataPage() {
-  const { toast } = useToast()
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { trades, setTrades } = useTrades();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-
-  const handleExport = () => {
-    downloadCSV(trades)
+  // Function to trigger CSV download
+  const downloadCSV = (trades: Trade[]) => {
+      const csvString = convertToCSV(trades);
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', 'trading_history.csv');
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
     toast({
         title: "Export Successful",
         description: "Your trading history has been downloaded as a CSV file.",
     })
   }
-  
+
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -87,7 +84,9 @@ export default function MasterDataPage() {
           const tradeObject: any = {};
           header.forEach((h, i) => {
             const value = values[i];
-             if (['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd', 'risk_reward_ratio', 'pips'].includes(h)) {
+            const numberFields = ['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd', 'risk_reward_ratio', 'pips', 'profit_inr'];
+
+            if (numberFields.includes(h)) {
               tradeObject[h] = parseFloat(value) || 0;
             } else if (h === 'mistakes' && value) {
               tradeObject[h] = value.split(';');
@@ -95,6 +94,12 @@ export default function MasterDataPage() {
               tradeObject[h] = value;
             }
           });
+
+          // INR to USD conversion
+          if (tradeObject.profit_inr) {
+            tradeObject.profit_usd = tradeObject.profit_inr / 88;
+          }
+          
           return tradeObject as Trade;
         });
         setTrades(newTrades);
@@ -128,7 +133,7 @@ export default function MasterDataPage() {
             <CardHeader>
                 <CardTitle>Import / Export</CardTitle>
                 <CardDescription>
-                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason, notes, chartUrl, mistakes, session, risk_reward_ratio, pips
+                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd (or profit_inr), equity_usd, margin_level, close_reason, notes, chartUrl, mistakes, session, risk_reward_ratio, pips
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-4">
@@ -142,7 +147,7 @@ export default function MasterDataPage() {
                     accept=".csv"
                     className="hidden"
                 />
-                <Button variant="outline" onClick={handleExport}>
+                <Button variant="outline" onClick={() => downloadCSV(trades)}>
                     <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
                  <AlertDialog>

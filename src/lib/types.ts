@@ -15,15 +15,17 @@ export type Trade = {
   commission_usd: number;
   swap_usd: number;
   profit_usd: number;
+  profit_inr?: number; // Optional INR profit
   equity_usd: number;
-  margin_level: string; // Can be 'so' or a number
+  margin_level: string; 
   close_reason: string;
   notes?: string;
   chartUrl?: string;
   mistakes?: string[];
-  pips?: number; // Calculated field
-  riskRewardRatio?: number; // Calculated field
-  session?: Session; // Calculated field
+  mistake_1?: string;
+  pips?: number; 
+  risk_reward_ratio?: number; 
+  session?: Session; 
 };
 
 
