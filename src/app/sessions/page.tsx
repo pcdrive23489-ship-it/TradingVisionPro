@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Session } from "@/lib/types"
 import { useTrades } from "@/context/trade-provider"
+import { SessionPerformanceChart } from "@/components/dashboard/session-performance-chart"
 
 const SessionTradeList = ({ session }: { session: Session }) => {
     const { trades } = useTrades();
@@ -57,6 +59,7 @@ export default function SessionsPage() {
                     <p className="text-muted-foreground">Analyze your performance based on trading sessions.</p>
                 </div>
 
+                <SessionPerformanceChart />
                 <SessionHeatmap />
 
                 <Card>
