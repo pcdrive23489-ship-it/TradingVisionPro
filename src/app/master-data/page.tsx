@@ -86,7 +86,7 @@ export default function MasterDataPage() {
           const tradeObject: any = {};
           header.forEach((h, i) => {
             const value = values[i];
-             if (['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd'].includes(h)) {
+             if (['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd', 'risk_reward_ratio', 'pips'].includes(h)) {
               tradeObject[h] = parseFloat(value) || 0;
             } else if (h === 'mistakes' && value) {
               tradeObject[h] = value.split(';');
@@ -119,7 +119,7 @@ export default function MasterDataPage() {
             <CardHeader>
                 <CardTitle>Import / Export</CardTitle>
                 <CardDescription>
-                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason, notes, chartUrl, mistakes
+                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason, notes, chartUrl, mistakes, session, risk_reward_ratio, pips, mistake_1
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex gap-4">
@@ -163,7 +163,7 @@ export default function MasterDataPage() {
                     <TableCell>{trade.close_reason}</TableCell>
                     <TableCell>{format(new Date(trade.closing_time_utc), 'Pp')}</TableCell>
                     <TableCell className={`text-right font-semibold ${trade.profit_usd >= 0 ? "text-accent" : "text-destructive"}`}>
-                      ${trade.profit_usd.toFixed(2)}
+                      ${(trade.profit_usd || 0).toFixed(2)}
                     </TableCell>
                   </TableRow>
                 ))}
