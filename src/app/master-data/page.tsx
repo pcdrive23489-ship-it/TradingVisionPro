@@ -11,9 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { mockTrades } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import type { Trade } from "@/lib/types"
+import { format } from "date-fns"
 
 // Function to convert array of objects to CSV
 const convertToCSV = (objArray: any[]) => {
+    if (objArray.length === 0) return "";
     const array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
     let str = '';
     const header = Object.keys(array[0]).join(',');
@@ -23,7 +25,11 @@ const convertToCSV = (objArray: any[]) => {
         let line = '';
         for (let index in array[i]) {
             if (line != '') line += ','
-            line += array[i][index];
+            let value = array[i][index];
+            if (Array.isArray(value)) {
+                value = value.join(';');
+            }
+            line += value;
         }
         str += line + '\r\n';
     }
@@ -32,7 +38,7 @@ const convertToCSV = (objArray: any[]) => {
 
 // Function to trigger CSV download
 const downloadCSV = (trades: Trade[]) => {
-    const csvString = convertToCSV(trades.map(t => ({...t, mistakes: t.mistakes.join(';')})));
+    const csvString = convertToCSV(trades);
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -48,9 +54,11 @@ const downloadCSV = (trades: Trade[]) => {
 export default function MasterDataPage() {
   const { toast } = useToast()
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [trades, setTrades] = React.useState<Trade[]>(mockTrades);
+
 
   const handleExport = () => {
-    downloadCSV(mockTrades)
+    downloadCSV(trades)
     toast({
         title: "Export Successful",
         description: "Your trading history has been downloaded as a CSV file.",
@@ -64,14 +72,35 @@ export default function MasterDataPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      console.log("Importing file:", file.name);
-      // Here you would typically parse the CSV and update your state
-      toast({
-        title: "Import Started",
-        description: `${file.name} is being processed.`,
-      });
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        const header = lines[0].split(',').map(h => h.trim());
+        const newTrades: Trade[] = lines.slice(1).map(line => {
+          const values = line.split(',');
+          const tradeObject: any = {};
+          header.forEach((h, i) => {
+            const value = values[i]?.trim();
+            // Coerce types based on schema
+             if (['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd'].includes(h)) {
+              tradeObject[h] = parseFloat(value) || 0;
+            } else {
+              tradeObject[h] = value;
+            }
+          });
+          return tradeObject as Trade;
+        });
+        setTrades(newTrades);
+        toast({
+          title: "Import Successful",
+          description: `${file.name} has been imported.`,
+        });
+      };
+      reader.readAsText(file);
     }
   };
+
 
   return (
     <MainLayout>
@@ -85,7 +114,7 @@ export default function MasterDataPage() {
             <CardHeader>
                 <CardTitle>Import / Export</CardTitle>
                 <CardDescription>
-                    Export your entire trading history to a CSV file or import trades from a file.
+                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex gap-4">
@@ -114,22 +143,22 @@ export default function MasterDataPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Pair</TableHead>
-                  <TableHead>Direction</TableHead>
-                  <TableHead>Session</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Close Reason</TableHead>
+                  <TableHead>Closing Time</TableHead>
                   <TableHead className="text-right">Profit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockTrades.map((trade) => (
-                  <TableRow key={trade.id}>
-                    <TableCell className="font-medium">{trade.pair}</TableCell>
-                    <TableCell>{trade.direction}</TableCell>
-                    <TableCell>{trade.session}</TableCell>
-                    <TableCell>{new Date(trade.date).toLocaleDateString('en-GB')}</TableCell>
-                    <TableCell className={`text-right font-semibold ${trade.profit >= 0 ? "text-accent" : "text-destructive"}`}>
-                      ${trade.profit.toFixed(2)}
+                {trades.map((trade) => (
+                  <TableRow key={trade.ticket}>
+                    <TableCell className="font-medium">{trade.symbol}</TableCell>
+                    <TableCell>{trade.type}</TableCell>
+                    <TableCell>{trade.close_reason}</TableCell>
+                    <TableCell>{format(new Date(trade.closing_time_utc), 'Pp')}</TableCell>
+                    <TableCell className={`text-right font-semibold ${trade.profit_usd >= 0 ? "text-accent" : "text-destructive"}`}>
+                      ${trade.profit_usd.toFixed(2)}
                     </TableCell>
                   </TableRow>
                 ))}

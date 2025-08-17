@@ -39,12 +39,13 @@ import { mistakeTags } from "@/lib/data";
 import type { Trade } from "@/lib/types";
 
 const tradeSchema = z.object({
-  pair: z.string().min(1, "Pair is required."),
-  direction: z.enum(["buy", "sell"]),
-  entryPrice: z.coerce.number().positive("Entry price must be positive."),
-  exitPrice: z.coerce.number().positive("Exit price must be positive."),
-  lotSize: z.coerce.number().positive("Lot size must be positive."),
-  stopLoss: z.coerce.number().positive("Stop loss must be positive."),
+  symbol: z.string().min(1, "Symbol is required."),
+  type: z.enum(["buy", "sell"]),
+  opening_price: z.coerce.number().positive("Opening price must be positive."),
+  closing_price: z.coerce.number().positive("Closing price must be positive."),
+  lots: z.coerce.number().positive("Lots must be positive."),
+  stop_loss: z.coerce.number().positive("Stop loss must be positive."),
+  take_profit: z.coerce.number().positive("Take profit must be positive."),
   notes: z.string().optional(),
   mistakes: z.array(z.string()).optional(),
   chartUrl: z.any().optional(),
@@ -61,7 +62,14 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
     defaultValues: {
-      ...trade,
+      symbol: trade.symbol,
+      type: trade.type,
+      opening_price: trade.opening_price,
+      closing_price: trade.closing_price,
+      lots: trade.lots,
+      stop_loss: trade.stop_loss,
+      take_profit: trade.take_profit,
+      notes: trade.notes,
       mistakes: trade.mistakes || [],
     },
   });
@@ -92,7 +100,7 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
     console.log("Trade Updated:", { ...trade, ...data });
     toast({
       title: "Trade Updated",
-      description: `Your ${data.pair} trade has been updated successfully.`,
+      description: `Your ${data.symbol} trade has been updated successfully.`,
       variant: "default",
     });
     setOpen(false);
@@ -112,10 +120,10 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <FormField
               control={form.control}
-              name="pair"
+              name="symbol"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Currency Pair</FormLabel>
+                  <FormLabel>Symbol</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., EUR/USD" {...field} />
                   </FormControl>
@@ -125,14 +133,14 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
             />
             <FormField
               control={form.control}
-              name="direction"
+              name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Direction</FormLabel>
+                  <FormLabel>Type</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select trade direction" />
+                        <SelectValue placeholder="Select trade type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -146,10 +154,10 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
             />
             <FormField
               control={form.control}
-              name="entryPrice"
+              name="opening_price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Entry Price</FormLabel>
+                  <FormLabel>Opening Price</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.0001" {...field} />
                   </FormControl>
@@ -159,10 +167,10 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
             />
             <FormField
               control={form.control}
-              name="exitPrice"
+              name="closing_price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Exit Price</FormLabel>
+                  <FormLabel>Closing Price</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.0001" {...field} />
                   </FormControl>
@@ -172,10 +180,10 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
             />
              <FormField
               control={form.control}
-              name="lotSize"
+              name="lots"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Lot Size</FormLabel>
+                  <FormLabel>Lots</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
                   </FormControl>
@@ -185,10 +193,23 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
             />
              <FormField
               control={form.control}
-              name="stopLoss"
+              name="stop_loss"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Stop Loss</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="take_profit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Take Profit</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.0001" {...field} />
                   </FormControl>
