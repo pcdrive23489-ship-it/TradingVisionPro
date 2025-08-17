@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Upload, Download } from "lucide-react"
+import { Upload, Download, Trash2 } from "lucide-react"
 
 import MainLayout from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { Trade } from "@/lib/types"
 import { format } from "date-fns"
 import { useTrades } from "@/context/trade-provider"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 // Function to convert array of objects to CSV
 const convertToCSV = (objArray: any[]) => {
@@ -39,7 +40,7 @@ const convertToCSV = (objArray: any[]) => {
 // Function to trigger CSV download
 const downloadCSV = (trades: Trade[]) => {
     const csvString = convertToCSV(trades);
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-t;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
@@ -106,6 +107,14 @@ export default function MasterDataPage() {
     }
   };
 
+  const handleDeleteAllData = () => {
+    setTrades([]);
+    toast({
+      title: "Data Cleared",
+      description: "All trading data has been deleted.",
+    });
+  };
+
 
   return (
     <MainLayout>
@@ -119,10 +128,10 @@ export default function MasterDataPage() {
             <CardHeader>
                 <CardTitle>Import / Export</CardTitle>
                 <CardDescription>
-                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason, notes, chartUrl, mistakes, session, risk_reward_ratio, pips, mistake_1
+                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason, notes, chartUrl, mistakes, session, risk_reward_ratio, pips
                 </CardDescription>
             </CardHeader>
-            <CardContent className="flex gap-4">
+            <CardContent className="flex flex-wrap gap-4">
                 <Button onClick={handleImportClick}>
                     <Upload className="mr-2 h-4 w-4" /> Import CSV
                 </Button>
@@ -136,6 +145,28 @@ export default function MasterDataPage() {
                 <Button variant="outline" onClick={handleExport}>
                     <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
+                 <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive">
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete All Data
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete all your
+                        trading data from the application.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAllData}>
+                        Continue
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
             </CardContent>
         </Card>
 
