@@ -156,8 +156,8 @@ export default function MasterDataPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {trades.map((trade) => (
-                  <TableRow key={`${trade.ticket}-${trade.closing_time_utc}`}>
+                {trades.map((trade, index) => (
+                  <TableRow key={`${trade.ticket}-${trade.closing_time_utc}-${index}`}>
                     <TableCell className="font-medium">{trade.symbol}</TableCell>
                     <TableCell>{trade.type}</TableCell>
                     <TableCell>{trade.close_reason}</TableCell>
