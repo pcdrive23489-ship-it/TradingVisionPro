@@ -23,7 +23,7 @@ export default function AnalysisPage() {
       if (!acc[trade.symbol]) {
           acc[trade.symbol] = 0;
       }
-      acc[trade.symbol] += trade.profit_usd;
+      acc[trade.symbol] += trade.profit_usd || 0;
       return acc;
   }, {} as Record<string, number>), [trades]);
 
@@ -36,8 +36,8 @@ export default function AnalysisPage() {
   const { avgRiskReward, profitRatio } = React.useMemo(() => {
     if (trades.length === 0) return { avgRiskReward: 0, profitRatio: 0 };
     
-    const totalWins = trades.filter(t => t.profit_usd > 0).reduce((sum, t) => sum + t.profit_usd, 0);
-    const totalLosses = Math.abs(trades.filter(t => t.profit_usd < 0).reduce((sum, t) => sum + t.profit_usd, 0));
+    const totalWins = trades.filter(t => (t.profit_usd || 0) > 0).reduce((sum, t) => sum + (t.profit_usd || 0), 0);
+    const totalLosses = Math.abs(trades.filter(t => (t.profit_usd || 0) < 0).reduce((sum, t) => sum + (t.profit_usd || 0), 0));
     const profitRatioValue = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? Infinity : 0;
     
     const tradesWithRR = trades.filter(t => t.risk_reward_ratio);
