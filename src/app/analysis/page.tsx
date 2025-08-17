@@ -33,18 +33,18 @@ export default function AnalysisPage() {
       fill: pnl >= 0 ? "hsl(var(--accent))" : "hsl(var(--destructive))",
   })), [profitabilityByPair]);
 
-  const { avgRiskReward, winRate } = React.useMemo(() => {
-    const totalTrades = trades.length;
-    if (totalTrades === 0) return { avgRiskReward: 0, winRate: 0 };
+  const { avgRiskReward, profitRatio } = React.useMemo(() => {
+    if (trades.length === 0) return { avgRiskReward: 0, profitRatio: 0 };
     
-    const winningTrades = trades.filter(t => t.profit_usd > 0);
-    const winRateValue = (winningTrades.length / totalTrades) * 100;
+    const totalWins = trades.filter(t => t.profit_usd > 0).reduce((sum, t) => sum + t.profit_usd, 0);
+    const totalLosses = Math.abs(trades.filter(t => t.profit_usd < 0).reduce((sum, t) => sum + t.profit_usd, 0));
+    const profitRatioValue = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? Infinity : 0;
     
     const tradesWithRR = trades.filter(t => t.risk_reward_ratio);
     const totalRR = tradesWithRR.reduce((sum, t) => sum + (t.risk_reward_ratio || 0), 0);
     const avgRiskRewardValue = tradesWithRR.length > 0 ? totalRR / tradesWithRR.length : 0;
 
-    return { avgRiskReward: avgRiskRewardValue, winRate: winRateValue };
+    return { avgRiskReward: avgRiskRewardValue, profitRatio: profitRatioValue };
   }, [trades]);
 
 
@@ -80,11 +80,11 @@ export default function AnalysisPage() {
                             </div>
                              <div>
                                 <div className="flex justify-between mb-1">
-                                    <h4 className="text-sm font-medium">Win Rate</h4>
-                                    <span className="text-sm">{winRate.toFixed(1)}%</span>
+                                    <h4 className="text-sm font-medium">Profit Ratio</h4>
+                                    <span className="text-sm">{profitRatio === Infinity ? "∞" : profitRatio.toFixed(2)}</span>
                                 </div>
-                                <Progress value={winRate} className="[&>*]:bg-accent" />
-                                <p className="text-xs text-muted-foreground mt-1">Target: 60%</p>
+                                <Progress value={(profitRatio / 3) * 100} className="[&>*]:bg-accent" />
+                                <p className="text-xs text-muted-foreground mt-1">Target: &gt; 1.5</p>
                             </div>
                         </CardContent>
                     </Card>
