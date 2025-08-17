@@ -29,7 +29,7 @@ const convertToCSV = (objArray: any[]) => {
             if (Array.isArray(value)) {
                 value = value.join(';');
             }
-            line += value;
+            line += `"${value}"`;
         }
         str += line + '\r\n';
     }
@@ -76,15 +76,20 @@ export default function MasterDataPage() {
       reader.onload = (e) => {
         const text = e.target?.result as string;
         const lines = text.split('\n').filter(line => line.trim() !== '');
-        const header = lines[0].split(',').map(h => h.trim());
+        if (lines.length < 2) {
+            toast({ title: "Error", description: "CSV file is empty or has no data.", variant: "destructive" });
+            return;
+        }
+        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const newTrades: Trade[] = lines.slice(1).map(line => {
-          const values = line.split(',');
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
           const tradeObject: any = {};
           header.forEach((h, i) => {
-            const value = values[i]?.trim();
-            // Coerce types based on schema
+            const value = values[i];
              if (['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd'].includes(h)) {
               tradeObject[h] = parseFloat(value) || 0;
+            } else if (h === 'mistakes' && value) {
+              tradeObject[h] = value.split(';');
             } else {
               tradeObject[h] = value;
             }
@@ -114,7 +119,7 @@ export default function MasterDataPage() {
             <CardHeader>
                 <CardTitle>Import / Export</CardTitle>
                 <CardDescription>
-                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason
+                    Export your entire trading history to a CSV file or import trades from a file. The expected format is: ticket, opening_time_utc, closing_time_utc, type, lots, original_position_size, symbol, opening_price, closing_price, stop_loss, take_profit, commission_usd, swap_usd, profit_usd, equity_usd, margin_level, close_reason, notes, chartUrl, mistakes
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex gap-4">
@@ -152,7 +157,7 @@ export default function MasterDataPage() {
               </TableHeader>
               <TableBody>
                 {trades.map((trade) => (
-                  <TableRow key={trade.ticket}>
+                  <TableRow key={`${trade.ticket}-${trade.closing_time_utc}`}>
                     <TableCell className="font-medium">{trade.symbol}</TableCell>
                     <TableCell>{trade.type}</TableCell>
                     <TableCell>{trade.close_reason}</TableCell>
