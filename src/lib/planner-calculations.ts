@@ -30,7 +30,6 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
     
     for (let i = 0; i < fiscalYears.length; i++) {
         const year = fiscalYears[i];
-        const numericYear = 2000 + parseInt(year.substring(2));
         
         // If it's not the first year, set the opening balance from the previous year's closing balance.
         if (i > 0) {
@@ -40,13 +39,12 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
 
         let runningBalances = { ...newData[year].openingBalance };
         
-        // Iterate through each month to calculate the closing balance for the current year
+        const numericYear = 2000 + parseInt(year.substring(2));
         for (const [monthIndex, month] of months.entries()) {
             const monthData = newData[year].monthly[month];
             
             accountTypes.forEach(accType => {
                 let monthOpeningBalance = runningBalances[accType] || 0;
-                let lastDayClosing = monthOpeningBalance;
                 
                 const dailyProfitPerc = monthData.profitPercentage[accType] || 0;
                 const totalMonthlyWithdrawal = monthData.withdrawals[accType] || 0;
@@ -57,18 +55,19 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
 
                 const dailyWithdrawal = tradingDays > 0 ? totalMonthlyWithdrawal / tradingDays : 0;
 
-                for (let d = 1; d <= daysInMonth; d++) {
-                    const date = new Date(numericYear, monthIndex, d);
-                    if (date.getDay() > 0 && date.getDay() < 6) { // Is it a weekday?
-                        const opening = lastDayClosing;
-                        const pnl = (opening * dailyProfitPerc) / 100;
-                        const closing = opening + pnl - dailyWithdrawal;
-                        lastDayClosing = closing;
+                let monthClosingBalance = monthOpeningBalance;
+                if (tradingDays > 0) {
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const date = new Date(numericYear, monthIndex, d);
+                        if (date.getDay() > 0 && date.getDay() < 6) { // Is it a weekday?
+                           const pnl = (monthClosingBalance * dailyProfitPerc) / 100;
+                           monthClosingBalance += pnl - dailyWithdrawal;
+                        }
                     }
                 }
                 
                 // Update the running balance for the current account type for the next month
-                runningBalances[accType] = lastDayClosing;
+                runningBalances[accType] = monthClosingBalance;
             });
         }
         
@@ -77,3 +76,5 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
     }
     return newData;
 }
+
+    

@@ -12,7 +12,7 @@ import { Loader2, Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
-import type { PlannerMasterDataState, YearlyData } from "@/lib/planner-calculations"
+import type { YearlyData as PlannerYearlyData, PlannerMasterDataState } from "@/lib/planner-calculations"
 import { AreaChart, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, Bar, Legend, ResponsiveContainer } from "recharts"
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
@@ -23,7 +23,7 @@ const accountTypes = ["Forex Trading", "Online", "Indian Market"];
 interface DailyLog {
   date: string;
   opening: number;
-  return: number;
+  return: number; // This will be an input from master data
   pnl: number;
   withdrawals: number;
   closing: number;
@@ -77,7 +77,9 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
   const [activeMonth, setActiveMonth] = React.useState(months[0]);
   
   const handleInputChange = (month: string, dayIndex: number, field: keyof DailyLog, value: string) => {
-    onDataChange(month, dayIndex, field, value);
+    // This function is now a placeholder as real-time editing is complex.
+    // Changes should be made in the master data page.
+    console.log("Changes to daily log should be made via the master data page to trigger recalculations.");
   };
 
   const monthData = yearData.monthly[activeMonth];
@@ -106,10 +108,10 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
     summary.winPercentage = summary.totalTrades > 0 ? (wins / summary.totalTrades) * 100 : 0;
     
     const lastDay = monthData.log[monthData.log.length - 1];
-    summary.netClosing = lastDay ? lastDay.closing : 0;
+    summary.netClosing = lastDay ? lastDay.closing : yearData.openingBalance;
 
     return summary;
-  }, [monthData]);
+  }, [monthData, yearData.openingBalance]);
 
 
   return (
@@ -143,23 +145,23 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
                             <TableCell>{day.date}</TableCell>
                             <TableCell>${day.opening.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                             <TableCell>
-                            <Input 
-                                type="number" 
-                                value={day.return} 
-                                onChange={(e) => handleInputChange(activeMonth, i, 'return', e.target.value)}
-                                className="w-20"
-                            />
+                                <Input 
+                                    type="number" 
+                                    defaultValue={day.return}
+                                    readOnly
+                                    className="w-20"
+                                />
                             </TableCell>
                             <TableCell className={day.pnl >= 0 ? "text-accent" : "text-destructive"}>
-                            ${day.pnl.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                ${day.pnl.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </TableCell>
                             <TableCell>
-                            <Input 
-                                type="number" 
-                                value={day.withdrawals} 
-                                onChange={(e) => handleInputChange(activeMonth, i, 'withdrawals', e.target.value)}
-                                className="w-24"
-                            />
+                                <Input 
+                                    type="number" 
+                                    defaultValue={day.withdrawals}
+                                    readOnly
+                                    className="w-24"
+                                />
                             </TableCell>
                             <TableCell>${day.closing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                         </TableRow>
@@ -195,7 +197,7 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
                     </div>
                     <div className="border-t pt-4">
                     <p className="text-sm text-muted-foreground">Net Closing Balance</p>
-                    <p className="text-2xl font-bold">${monthlySummary.netClosing.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">${monthlySummary.netClosing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                     </div>
                 </CardContent>
                 </Card>
@@ -217,12 +219,18 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
   )
 }
 
-// --- NEW CALCULATION ENGINE ---
-const runCalculationsForYear = (yearData: YearlyData, year: string): Record<string, YearlyDataForPlanner> => {
+// --- NEW SELF-CONTAINED CALCULATION ENGINE ---
+const runCalculationsForYear = (yearData: PlannerYearlyData, year: string): Record<string, YearlyDataForPlanner> => {
     const calculatedData: Record<string, YearlyDataForPlanner> = {};
     const numericYear = 2000 + parseInt(year.substring(2));
 
     accountTypes.forEach(accType => {
+        let lastYearClosing = yearData.openingBalance[accType] || 0;
+        
+        // Find opening balance from previous year if not the first year
+        // This is simplified here. The master data page should handle this propagation.
+        // For this page, we rely on the openingBalance provided in the master data for the year.
+        
         const accYearlyData: YearlyDataForPlanner = {
             openingBalance: yearData.openingBalance[accType] || 0,
             closingBalance: 0,
@@ -307,8 +315,7 @@ export default function PlannerPage() {
       if (savedData) {
         setPlannerMasterData(JSON.parse(savedData));
       } else {
-        // If no data, we can't do anything yet. The master data page should create it.
-        console.log("No planner master data found. Please create it first.");
+        console.log("No planner master data found. Please create it first via the Master Data page.");
       }
     } catch (error) {
       console.error("Failed to load planner master data:", error);
@@ -326,13 +333,6 @@ export default function PlannerPage() {
     }
   }, [plannerMasterData, activeYear]);
 
-
-  // For now, this is a placeholder. A full implementation would update master data and trigger recalculation.
-  const handleDailyDataChange = (month: string, dayIndex: number, field: keyof DailyLog, value: any) => {
-      console.log("Changing daily data:", {month, dayIndex, field, value, accountType: activeAccountType});
-      // In a more complex version, this would update the master data and trigger a full recalculation.
-      // For now, we keep it simple to ensure visualizations work.
-  };
 
   const { yearlySummary, visualizationData } = React.useMemo(() => {
     const summary = {
@@ -352,9 +352,12 @@ export default function PlannerPage() {
         return { yearlySummary: summary, visualizationData: { balanceData, pnlData } };
     }
 
-    summary.incomeTarget = activeYearCalculatedData[accountTypes[0]]?.incomeTarget || 0;
-    summary.savingsTarget = activeYearCalculatedData[accountTypes[0]]?.savingsTarget || 0;
-    summary.totalTrades = activeYearCalculatedData[accountTypes[0]]?.totalTrades || 0;
+    const firstAccountData = activeYearCalculatedData[accountTypes[0]];
+    if(firstAccountData) {
+      summary.incomeTarget = firstAccountData.incomeTarget;
+      summary.savingsTarget = firstAccountData.savingsTarget;
+      summary.totalTrades = firstAccountData.totalTrades;
+    }
 
     accountTypes.forEach(accType => {
         const data = activeYearCalculatedData[accType];
@@ -373,7 +376,7 @@ export default function PlannerPage() {
 
       accountTypes.forEach(accType => {
         const monthLogs = activeYearCalculatedData[accType]?.monthly[month]?.log;
-        const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : 0;
+        const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : (activeYearCalculatedData[accType]?.monthly[month] ? activeYearCalculatedData[accType]!.openingBalance : 0);
         monthBalanceEntry[accType] = closing;
 
         if (monthLogs) {
@@ -409,129 +412,135 @@ export default function PlannerPage() {
           <p className="text-muted-foreground">Plan and track your trading income goals.</p>
         </div>
         
-        <Card>
-          <CardHeader>
-              <CardTitle>Planner Setup</CardTitle>
-              <CardDescription>
-                  Set your initial values and targets for the year in the Planner Master Data page. These will cascade through the planner.
-              </CardDescription>
-          </CardHeader>
-          <CardContent>
-              <Link href="/planner-master-data">
-                <Button>
-                    Go to Planner Master Data
-                </Button>
-              </Link>
-          </CardContent>
-        </Card>
+        {!plannerMasterData && (
+          <Card>
+            <CardHeader>
+                <CardTitle>Planner Setup Required</CardTitle>
+                <CardDescription>
+                    No planner data found. Please go to the Planner Master Data page to set your initial values and targets for the year.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Link href="/planner-master-data">
+                  <Button>
+                      Go to Planner Master Data
+                  </Button>
+                </Link>
+            </CardContent>
+          </Card>
+        )}
 
-        <Tabs defaultValue={activeYear} onValueChange={setActiveYear} className="w-full">
-          <TabsList>
-            {fiscalYears.map(year => <TabsTrigger key={year} value={year}>{year}</TabsTrigger>)}
-          </TabsList>
+        {plannerMasterData && (
+          <Tabs defaultValue={activeYear} onValueChange={setActiveYear} className="w-full">
+            <TabsList>
+              {fiscalYears.map(year => <TabsTrigger key={year} value={year}>{year}</TabsTrigger>)}
+            </TabsList>
 
-          <TabsContent value={activeYear} className="space-y-6">
-            {!activeYearCalculatedData ? (
-                 <Card>
-                    <CardContent className="pt-6 text-center">
-                        <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-                        <p className="mt-2 text-muted-foreground">Calculating data for {activeYear}...</p>
-                    </CardContent>
-                 </Card>
-            ): (
-                <>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Master Yearly Summary - {activeYear}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        <StatCard title="Opening Balance" value={`$${yearlySummary.totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                        <StatCard title="Total Trades" value={String(yearlySummary.totalTrades)} />
-                        <StatCard title="Total Withdrawals" value={`$${yearlySummary.totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                        <StatCard title="Yearly Net P/L" value={`$${yearlySummary.totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={yearlySummary.totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
-                        <StatCard title="Closing Balance" value={`$${yearlySummary.totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                        </CardContent>
-                    </Card>
+            <TabsContent value={activeYear} className="space-y-6">
+              {!activeYearCalculatedData ? (
+                  <Card>
+                      <CardContent className="pt-6 text-center">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                          <p className="mt-2 text-muted-foreground">Calculating data for {activeYear}...</p>
+                      </CardContent>
+                  </Card>
+              ): (
+                  <>
+                      <Card>
+                          <CardHeader>
+                              <CardTitle>Master Yearly Summary - {activeYear}</CardTitle>
+                          </CardHeader>
+                          <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <StatCard title="Opening Balance" value={`$${yearlySummary.totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                          <StatCard title="Total Trades" value={String(yearlySummary.totalTrades)} />
+                          <StatCard title="Total Withdrawals" value={`$${yearlySummary.totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                          <StatCard title="Yearly Net P/L" value={`$${yearlySummary.totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={yearlySummary.totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
+                          <StatCard title="Closing Balance" value={`$${yearlySummary.totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                          </CardContent>
+                      </Card>
 
-                    <div className="grid md:grid-cols-2 gap-6">
-                    <Card>
-                        <CardHeader>
-                        <CardTitle>Yearly Targets</CardTitle>
-                        <CardDescription>Your progress towards your annual goals.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                        <TargetBar title="Income Target" actual={yearlySummary.totalYearlyNetPL} target={yearlySummary.incomeTarget} />
-                        <TargetBar title="Savings Target" actual={yearlySummary.totalYearlyNetPL - yearlySummary.totalWithdrawals} target={yearlySummary.savingsTarget} />
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                        <CardTitle>Visualizations</CardTitle>
-                        <CardDescription>Projected growth and cash flow analysis.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-[250px] flex flex-col">
-                        <Tabs defaultValue="balance">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="balance">Balance Growth</TabsTrigger>
-                                <TabsTrigger value="pnl">P/L vs Withdrawals</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="balance" className="flex-1 -mx-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
-                                    <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
-                                    <Legend />
-                                    <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="#8884d8" fill="#8884d8" />
-                                    <Area type="monotone" dataKey="Online" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
-                                    <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="#ffc658" fill="#ffc658" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                            </TabsContent>
-                            <TabsContent value="pnl" className="flex-1 -mx-4">
-                                <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
-                                        <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
-                                        <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
-                                        <Legend />
-                                        <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
-                                        <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </TabsContent>
-                        </Tabs>
-                        </CardContent>
-                    </Card>
-                    </div>
-                    
-                    <Tabs value={activeAccountType} onValueChange={setActiveAccountType}>
-                    <TabsList>
-                        {accountTypes.map(acc => <TabsTrigger key={acc} value={acc}>{acc}</TabsTrigger>)}
-                    </TabsList>
-                    {accountTypes.map(acc => (
-                        <TabsContent key={acc} value={acc}>
-                            {currentAccountPlannerData ? (
-                                <MonthlyPlanner 
-                                    yearData={currentAccountPlannerData} 
-                                    onDataChange={handleDailyDataChange}
-                                    accountType={acc}
-                                />
-                            ) : (
-                                <div className="flex items-center justify-center p-8">
-                                    <Loader2 className="h-6 w-6 animate-spin" />
-                                </div>
-                            )}
-                        </TabsContent>
-                    ))}
-                    </Tabs>
-                </>
-            )}
-          </TabsContent>
-        </Tabs>
+                      <div className="grid md:grid-cols-2 gap-6">
+                      <Card>
+                          <CardHeader>
+                          <CardTitle>Yearly Targets</CardTitle>
+                          <CardDescription>Your progress towards your annual goals.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                          <TargetBar title="Income Target" actual={yearlySummary.totalYearlyNetPL} target={yearlySummary.incomeTarget} />
+                          <TargetBar title="Savings Target" actual={yearlySummary.totalYearlyNetPL - yearlySummary.totalWithdrawals} target={yearlySummary.savingsTarget} />
+                          </CardContent>
+                      </Card>
+                      <Card>
+                          <CardHeader>
+                          <CardTitle>Visualizations</CardTitle>
+                          <CardDescription>Projected growth and cash flow analysis.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="h-[250px] flex flex-col">
+                          <Tabs defaultValue="balance">
+                              <TabsList className="grid w-full grid-cols-2">
+                                  <TabsTrigger value="balance">Balance Growth</TabsTrigger>
+                                  <TabsTrigger value="pnl">P/L vs Withdrawals</TabsTrigger>
+                              </TabsList>
+                              <TabsContent value="balance" className="flex-1 -mx-4">
+                              <ResponsiveContainer width="100%" height="100%">
+                                  <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
+                                      <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
+                                      <Legend />
+                                      <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" />
+                                      <Area type="monotone" dataKey="Online" stackId="1" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" />
+                                      <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" />
+                                  </AreaChart>
+                              </ResponsiveContainer>
+                              </TabsContent>
+                              <TabsContent value="pnl" className="flex-1 -mx-4">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                          <CartesianGrid strokeDasharray="3 3" />
+                                          <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
+                                          <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
+                                          <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
+                                          <Legend />
+                                          <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
+                                          <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
+                                      </BarChart>
+                                  </ResponsiveContainer>
+                              </TabsContent>
+                          </Tabs>
+                          </CardContent>
+                      </Card>
+                      </div>
+                      
+                      <Tabs value={activeAccountType} onValueChange={setActiveAccountType}>
+                      <TabsList>
+                          {accountTypes.map(acc => <TabsTrigger key={acc} value={acc}>{acc}</TabsTrigger>)}
+                      </TabsList>
+                      {accountTypes.map(acc => (
+                          <TabsContent key={acc} value={acc}>
+                              {currentAccountPlannerData ? (
+                                  <MonthlyPlanner 
+                                      yearData={currentAccountPlannerData} 
+                                      onDataChange={() => {}} // Pass a dummy function
+                                      accountType={acc}
+                                  />
+                              ) : (
+                                  <div className="flex items-center justify-center p-8">
+                                      <Loader2 className="h-6 w-6 animate-spin" />
+                                  </div>
+                              )}
+                          </TabsContent>
+                      ))}
+                      </Tabs>
+                  </>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </MainLayout>
   )
 }
+
+    
