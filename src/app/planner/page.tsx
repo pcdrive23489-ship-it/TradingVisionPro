@@ -12,9 +12,8 @@ import { Loader2, Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
-import type { YearlyData } from "@/lib/planner-calculations"
+import type { PlannerMasterDataState, YearlyData } from "@/lib/planner-calculations"
 import { AreaChart, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, Bar, Legend, ResponsiveContainer } from "recharts"
-
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -32,64 +31,21 @@ interface DailyLog {
 
 interface MonthlyDataForPlanner {
   log: DailyLog[];
-  withdrawals: Record<string, number>;
-  profitPercentage: Record<string, number>;
+  // These are targets/inputs from master data, not calculated values
+  withdrawalsTarget: number;
+  profitPercentageTarget: number;
 }
 
 interface YearlyDataForPlanner {
-  openingBalance: Record<string, number>;
-  closingBalance: Record<string, number>;
-  totalTrades: number;
+  openingBalance: number;
+  closingBalance: number;
+  totalTrades: number; // This seems static, can be refined
   totalWithdrawals: number;
   yearlyNetPL: number;
-  incomeTarget: number;
-  savingsTarget: number;
+  incomeTarget: number; // From master data
+  savingsTarget: number; // From master data
   monthly: { [key: string]: MonthlyDataForPlanner };
 }
-
-
-// --- Initial State ---
-const generateInitialYearData = (year: string, masterData: YearlyData | null): YearlyDataForPlanner => {
-  const numericYear = 2000 + parseInt(year.substring(2));
-  const monthly: { [key: string]: MonthlyDataForPlanner } = {};
-
-  months.forEach((month, monthIndex) => {
-    const daysInMonth = getDaysInMonth(new Date(numericYear, monthIndex));
-    const log: DailyLog[] = [];
-    for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(numericYear, monthIndex, i);
-      if (date.getDay() > 0 && date.getDay() < 6) { // Trading only on weekdays
-         log.push({
-          date: format(date, "dd-MMM"),
-          opening: 0,
-          return: 0,
-          pnl: 0,
-          withdrawals: 0,
-          closing: 0,
-        });
-      }
-    }
-    
-    const masterMonthData = masterData?.monthly[month];
-    
-    monthly[month] = {
-      log,
-      withdrawals: masterMonthData?.withdrawals || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
-      profitPercentage: masterMonthData?.profitPercentage || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 }
-    };
-  });
-
-  return {
-    openingBalance: masterData?.openingBalance || { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
-    closingBalance: { "Forex Trading": 0, "Online": 0, "Indian Market": 0 },
-    totalTrades: 240, 
-    totalWithdrawals: 0,
-    yearlyNetPL: 0,
-    incomeTarget: masterData?.incomeTarget || 60000,
-    savingsTarget: masterData?.savingsTarget || 25000,
-    monthly,
-  };
-};
 
 
 function StatCard({ title, value, footer, valueClassName }: { title: string, value: string, footer?: string, valueClassName?: string }) {
@@ -127,6 +83,8 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
   const monthData = yearData.monthly[activeMonth];
 
   const monthlySummary = React.useMemo(() => {
+    if (!monthData) return { totalPL: 0, totalWithdrawals: 0, winPercentage: 0, totalTrades: 0, netClosing: 0 };
+    
     const summary = {
       totalPL: 0,
       totalWithdrawals: 0,
@@ -159,218 +117,222 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
       <TabsList className="overflow-x-auto h-auto">
         {months.map(month => <TabsTrigger key={month} value={month}>{month}</TabsTrigger>)}
       </TabsList>
-      <TabsContent value={activeMonth}>
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{activeMonth} Trading Log - {accountType}</CardTitle>
-              </CardHeader>
-              <CardContent className="max-h-96 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Opening</TableHead>
-                      <TableHead>% Return</TableHead>
-                      <TableHead>P/L</TableHead>
-                      <TableHead>Withdrawals</TableHead>
-                      <TableHead>Closing</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {monthData.log.map((day, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{day.date}</TableCell>
-                        <TableCell>${day.opening.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                        <TableCell>
-                           <Input 
-                            type="number" 
-                            value={day.return} 
-                            onChange={(e) => handleInputChange(activeMonth, i, 'return', e.target.value)}
-                            className="w-20"
-                           />
-                        </TableCell>
-                        <TableCell className={day.pnl >= 0 ? "text-accent" : "text-destructive"}>
-                           ${day.pnl.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                        </TableCell>
-                        <TableCell>
-                           <Input 
-                            type="number" 
-                            value={day.withdrawals} 
-                            onChange={(e) => handleInputChange(activeMonth, i, 'withdrawals', e.target.value)}
-                            className="w-24"
-                           />
-                        </TableCell>
-                        <TableCell>${day.closing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total P/L</p>
-                    <p className={`text-lg font-bold ${monthlySummary.totalPL >= 0 ? "text-accent" : "text-destructive"}`}>${monthlySummary.totalPL.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Withdrawals</p>
-                    <p className="text-lg font-bold">${monthlySummary.totalWithdrawals.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Win %</p>
-                    <p className="text-lg font-bold">{monthlySummary.winPercentage.toFixed(0)}%</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Trades</p>
-                    <p className="text-lg font-bold">{monthlySummary.totalTrades}</p>
-                  </div>
-                </div>
-                <div className="border-t pt-4">
-                  <p className="text-sm text-muted-foreground">Net Closing Balance</p>
-                  <p className="text-2xl font-bold">${monthlySummary.netClosing.toLocaleString()}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wand2 className="text-primary" /> AI Suggestions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground italic">
-                <p>&quot;Your returns this month are on track. Consider a small increase in risk size for high-probability setups.&quot;</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </TabsContent>
+      {monthData && (
+        <TabsContent value={activeMonth}>
+            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+                <Card>
+                <CardHeader>
+                    <CardTitle>{activeMonth} Trading Log - {accountType}</CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-96 overflow-y-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Opening</TableHead>
+                        <TableHead>% Return</TableHead>
+                        <TableHead>P/L</TableHead>
+                        <TableHead>Withdrawals</TableHead>
+                        <TableHead>Closing</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {monthData.log.map((day, i) => (
+                        <TableRow key={i}>
+                            <TableCell>{day.date}</TableCell>
+                            <TableCell>${day.opening.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            <TableCell>
+                            <Input 
+                                type="number" 
+                                value={day.return} 
+                                onChange={(e) => handleInputChange(activeMonth, i, 'return', e.target.value)}
+                                className="w-20"
+                            />
+                            </TableCell>
+                            <TableCell className={day.pnl >= 0 ? "text-accent" : "text-destructive"}>
+                            ${day.pnl.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </TableCell>
+                            <TableCell>
+                            <Input 
+                                type="number" 
+                                value={day.withdrawals} 
+                                onChange={(e) => handleInputChange(activeMonth, i, 'withdrawals', e.target.value)}
+                                className="w-24"
+                            />
+                            </TableCell>
+                            <TableCell>${day.closing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </CardContent>
+                </Card>
+            </div>
+            <div className="space-y-6">
+                <Card>
+                <CardHeader>
+                    <CardTitle>Monthly Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                        <p className="text-sm text-muted-foreground">Total P/L</p>
+                        <p className={`text-lg font-bold ${monthlySummary.totalPL >= 0 ? "text-accent" : "text-destructive"}`}>${monthlySummary.totalPL.toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Withdrawals</p>
+                        <p className="text-lg font-bold">${monthlySummary.totalWithdrawals.toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Win %</p>
+                        <p className="text-lg font-bold">{monthlySummary.winPercentage.toFixed(0)}%</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Total Trades</p>
+                        <p className="text-lg font-bold">{monthlySummary.totalTrades}</p>
+                    </div>
+                    </div>
+                    <div className="border-t pt-4">
+                    <p className="text-sm text-muted-foreground">Net Closing Balance</p>
+                    <p className="text-2xl font-bold">${monthlySummary.netClosing.toLocaleString()}</p>
+                    </div>
+                </CardContent>
+                </Card>
+                <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                    <Wand2 className="text-primary" /> AI Suggestions
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground italic">
+                    <p>&quot;Your returns this month are on track. Consider a small increase in risk size for high-probability setups.&quot;</p>
+                </CardContent>
+                </Card>
+            </div>
+            </div>
+        </TabsContent>
+      )}
     </Tabs>
   )
 }
 
+// --- NEW CALCULATION ENGINE ---
+const runCalculationsForYear = (yearData: YearlyData, year: string): Record<string, YearlyDataForPlanner> => {
+    const calculatedData: Record<string, YearlyDataForPlanner> = {};
+    const numericYear = 2000 + parseInt(year.substring(2));
+
+    accountTypes.forEach(accType => {
+        const accYearlyData: YearlyDataForPlanner = {
+            openingBalance: yearData.openingBalance[accType] || 0,
+            closingBalance: 0,
+            totalTrades: 240, // Static for now
+            totalWithdrawals: 0,
+            yearlyNetPL: 0,
+            incomeTarget: yearData.incomeTarget,
+            savingsTarget: yearData.savingsTarget,
+            monthly: {},
+        };
+
+        let lastMonthClosing = accYearlyData.openingBalance;
+
+        months.forEach((month, monthIndex) => {
+            const masterMonthData = yearData.monthly[month];
+            const daysInMonth = getDaysInMonth(new Date(numericYear, monthIndex));
+            const log: DailyLog[] = [];
+            let lastDayClosing = lastMonthClosing;
+
+            const profitPercentageTarget = masterMonthData.profitPercentage[accType] || 0;
+            const withdrawalsTarget = masterMonthData.withdrawals[accType] || 0;
+            
+            const tradingDaysInMonth = Array.from({ length: daysInMonth }, (_, i) => new Date(numericYear, monthIndex, i + 1))
+                                            .filter(d => d.getDay() > 0 && d.getDay() < 6).length;
+            
+            const dailyWithdrawal = tradingDaysInMonth > 0 ? withdrawalsTarget / tradingDaysInMonth : 0;
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                const date = new Date(numericYear, monthIndex, i);
+                if (date.getDay() > 0 && date.getDay() < 6) { // Weekdays only
+                    const opening = lastDayClosing;
+                    const pnl = (opening * profitPercentageTarget) / 100;
+                    const closing = opening + pnl - dailyWithdrawal;
+                    log.push({
+                        date: format(date, "dd-MMM"),
+                        opening,
+                        return: profitPercentageTarget,
+                        pnl,
+                        withdrawals: dailyWithdrawal,
+                        closing,
+                    });
+                    lastDayClosing = closing;
+                }
+            }
+            
+            accYearlyData.monthly[month] = {
+                log,
+                profitPercentageTarget,
+                withdrawalsTarget
+            };
+
+            if (log.length > 0) {
+              lastMonthClosing = log[log.length - 1].closing;
+            }
+        });
+
+        accYearlyData.closingBalance = lastMonthClosing;
+        accYearlyData.yearlyNetPL = Object.values(accYearlyData.monthly).reduce((total, m) => total + m.log.reduce((pnlSum, day) => pnlSum + day.pnl, 0), 0);
+        accYearlyData.totalWithdrawals = Object.values(accYearlyData.monthly).reduce((total, m) => total + m.log.reduce((wSum, day) => wSum + day.withdrawals, 0), 0);
+        
+        calculatedData[accType] = accYearlyData;
+    });
+
+    return calculatedData;
+};
+
+
 export default function PlannerPage() {
-  const [yearData, setYearData] = React.useState<Record<string, YearlyDataForPlanner>>({});
+  const [plannerMasterData, setPlannerMasterData] = React.useState<PlannerMasterDataState | null>(null);
   const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const [activeAccountType, setActiveAccountType] = React.useState(accountTypes[0]);
   const [isLoading, setIsLoading] = React.useState(true);
-
-  const runCalculations = React.useCallback((data: YearlyDataForPlanner, accountType: string): YearlyDataForPlanner => {
-    const newData = JSON.parse(JSON.stringify(data)); 
-
-    let yearlyNetPL = 0;
-    let yearlyTotalWithdrawals = 0;
-    let lastMonthClosing = newData.openingBalance[accountType] || 0;
-
-    for (const month of months) {
-        let lastDayClosing = lastMonthClosing;
-        const monthData = newData.monthly[month];
-        
-        const dailyProfitPerc = monthData.profitPercentage[accountType] || 0;
-        
-        const totalDays = monthData.log.length;
-        const totalMonthlyWithdrawal = monthData.withdrawals[accountType] || 0;
-        const dailyWithdrawal = totalDays > 0 ? totalMonthlyWithdrawal / totalDays : 0;
-        
-        monthData.log.forEach((day: DailyLog) => {
-            day.opening = lastDayClosing;
-            
-            const returnPercent = day.return > 0 ? day.return : dailyProfitPerc;
-            day.return = returnPercent;
-            
-            day.pnl = parseFloat(((day.opening * returnPercent) / 100).toFixed(2));
-            
-            const withdrawalAmount = day.withdrawals > 0 ? day.withdrawals : dailyWithdrawal;
-            day.withdrawals = parseFloat(withdrawalAmount.toFixed(2));
-            
-            day.closing = day.opening + day.pnl - day.withdrawals;
-
-            yearlyNetPL += day.pnl;
-            yearlyTotalWithdrawals += day.withdrawals;
-            lastDayClosing = day.closing;
-        });
-        if (monthData.log.length > 0) {
-          lastMonthClosing = monthData.log[monthData.log.length - 1].closing;
-        }
-    }
-
-    newData.yearlyNetPL = yearlyNetPL;
-    newData.totalWithdrawals = yearlyTotalWithdrawals;
-    newData.closingBalance[accountType] = lastMonthClosing;
-    
-    return newData;
-  }, []);
   
+  // This state holds the calculated data for the active year
+  const [activeYearCalculatedData, setActiveYearCalculatedData] = React.useState<Record<string, YearlyDataForPlanner> | null>(null);
+
+  // Load master data from localStorage on initial render
   React.useEffect(() => {
-    const loadAndCalculateData = () => {
-        setIsLoading(true);
-        try {
-            const savedData = localStorage.getItem("plannerMasterData");
-            const masterData = savedData ? JSON.parse(savedData) : null;
-            
-            const calculatedDataForAllYears: { [year: string]: { [accType: string]: YearlyDataForPlanner } } = {};
+    setIsLoading(true);
+    try {
+      const savedData = localStorage.getItem("plannerMasterData");
+      if (savedData) {
+        setPlannerMasterData(JSON.parse(savedData));
+      } else {
+        // If no data, we can't do anything yet. The master data page should create it.
+        console.log("No planner master data found. Please create it first.");
+      }
+    } catch (error) {
+      console.error("Failed to load planner master data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-            fiscalYears.forEach(year => {
-                const yearMasterData = masterData ? masterData[year] : null;
-                const initialDataForYear = generateInitialYearData(year, yearMasterData);
-                calculatedDataForAllYears[year] = {};
-                accountTypes.forEach(accType => {
-                    calculatedDataForAllYears[year][accType] = runCalculations(initialDataForYear, accType);
-                });
-            });
+  // Re-calculate when master data or active year changes
+  React.useEffect(() => {
+    if (plannerMasterData && plannerMasterData[activeYear]) {
+        const yearMasterData = plannerMasterData[activeYear];
+        const calculatedData = runCalculationsForYear(yearMasterData, activeYear);
+        setActiveYearCalculatedData(calculatedData);
+    }
+  }, [plannerMasterData, activeYear]);
 
-            // This is a simplified approach, for this page we only care about the activeYear
-            setYearData(calculatedDataForAllYears[activeYear]);
 
-        } catch (error) {
-            console.error("Failed to load or calculate planner data:", error);
-            const initialData = generateInitialYearData(activeYear, null);
-            const calculatedData: Record<string, YearlyDataForPlanner> = {};
-            accountTypes.forEach(accType => {
-                calculatedData[accType] = runCalculations(initialData, accType);
-            });
-            setYearData(calculatedData);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    loadAndCalculateData();
-  }, [activeYear, runCalculations]);
-  
+  // For now, this is a placeholder. A full implementation would update master data and trigger recalculation.
   const handleDailyDataChange = (month: string, dayIndex: number, field: keyof DailyLog, value: any) => {
-      setYearData(prev => {
-        if (!prev[activeAccountType]) return prev;
-        
-        const newData = JSON.parse(JSON.stringify(prev)); // Deep copy
-        const newLog = [...newData[activeAccountType].monthly[month].log];
-
-        let numericValue = value;
-        if (typeof value === 'string' && (field === 'return' || field === 'withdrawals')) {
-          numericValue = parseFloat(value) || 0;
-        }
-
-        if(newLog[dayIndex]) {
-          (newLog[dayIndex] as any)[field] = numericValue;
-          newData[activeAccountType].monthly[month].log = newLog;
-          newData[activeAccountType] = runCalculations(newData[activeAccountType], activeAccountType);
-        }
-
-        return newData;
-      });
+      console.log("Changing daily data:", {month, dayIndex, field, value, accountType: activeAccountType});
+      // In a more complex version, this would update the master data and trigger a full recalculation.
+      // For now, we keep it simple to ensure visualizations work.
   };
-
-  const handleYearChange = (year: string) => {
-    setActiveYear(year);
-  }
 
   const { yearlySummary, visualizationData } = React.useMemo(() => {
     const summary = {
@@ -383,49 +345,49 @@ export default function PlannerPage() {
         totalTrades: 0,
     };
 
-    if (Object.keys(yearData).length === 0) {
-        return { yearlySummary: summary, visualizationData: { balanceData: [], pnlData: [] } };
+    const balanceData: { month: string, [key: string]: number | string }[] = [];
+    const pnlData: { month: string, netPnl: number, withdrawals: number }[] = [];
+
+    if (!activeYearCalculatedData) {
+        return { yearlySummary: summary, visualizationData: { balanceData, pnlData } };
     }
 
-    summary.incomeTarget = yearData[accountTypes[0]]?.incomeTarget || 0;
-    summary.savingsTarget = yearData[accountTypes[0]]?.savingsTarget || 0;
-    summary.totalTrades = yearData[accountTypes[0]]?.totalTrades || 0;
+    summary.incomeTarget = activeYearCalculatedData[accountTypes[0]]?.incomeTarget || 0;
+    summary.savingsTarget = activeYearCalculatedData[accountTypes[0]]?.savingsTarget || 0;
+    summary.totalTrades = activeYearCalculatedData[accountTypes[0]]?.totalTrades || 0;
 
     accountTypes.forEach(accType => {
-        const data = yearData[accType];
+        const data = activeYearCalculatedData[accType];
         if (data) {
-            summary.totalOpeningBalance += data.openingBalance[accType] || 0;
-            summary.totalClosingBalance += data.closingBalance[accType] || 0;
+            summary.totalOpeningBalance += data.openingBalance || 0;
+            summary.totalClosingBalance += data.closingBalance || 0;
             summary.totalYearlyNetPL += data.yearlyNetPL || 0;
             summary.totalWithdrawals += data.totalWithdrawals || 0;
         }
     });
 
-    const balanceData = months.map(month => {
-        const monthEntry: { month: string, [key: string]: number | string } = { month };
-        accountTypes.forEach(accType => {
-            const monthLogs = yearData[accType]?.monthly[month]?.log;
-            const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : 0;
-            monthEntry[accType] = closing;
-        });
-        return monthEntry;
-    });
+    months.forEach(month => {
+      const monthBalanceEntry: { month: string, [key: string]: number | string } = { month };
+      let monthNetPnl = 0;
+      let monthWithdrawals = 0;
 
-    const pnlData = months.map(month => {
-        let netPnl = 0;
-        let withdrawals = 0;
-        accountTypes.forEach(accType => {
-            const monthLogs = yearData[accType]?.monthly[month]?.log;
-            if (monthLogs) {
-                netPnl += monthLogs.reduce((sum, day) => sum + day.pnl, 0);
-                withdrawals += monthLogs.reduce((sum, day) => sum + day.withdrawals, 0);
-            }
-        });
-        return { month, netPnl, withdrawals };
+      accountTypes.forEach(accType => {
+        const monthLogs = activeYearCalculatedData[accType]?.monthly[month]?.log;
+        const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : 0;
+        monthBalanceEntry[accType] = closing;
+
+        if (monthLogs) {
+          monthNetPnl += monthLogs.reduce((sum, day) => sum + day.pnl, 0);
+          monthWithdrawals += monthLogs.reduce((sum, day) => sum + day.withdrawals, 0);
+        }
+      });
+
+      balanceData.push(monthBalanceEntry);
+      pnlData.push({ month, netPnl: monthNetPnl, withdrawals: monthWithdrawals });
     });
 
     return { yearlySummary: summary, visualizationData: { balanceData, pnlData } };
-  }, [yearData]);
+  }, [activeYearCalculatedData]);
   
   if (isLoading) {
     return (
@@ -436,17 +398,8 @@ export default function PlannerPage() {
         </MainLayout>
     );
   }
-
-  const currentYearDataForActiveAccount = yearData[activeAccountType];
-  if (!currentYearDataForActiveAccount) {
-    return (
-        <MainLayout>
-            <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-        </MainLayout>
-    )
-  }
+  
+  const currentAccountPlannerData = activeYearCalculatedData ? activeYearCalculatedData[activeAccountType] : null;
 
   return (
     <MainLayout>
@@ -472,99 +425,110 @@ export default function PlannerPage() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue={activeYear} onValueChange={handleYearChange} className="w-full">
+        <Tabs defaultValue={activeYear} onValueChange={setActiveYear} className="w-full">
           <TabsList>
             {fiscalYears.map(year => <TabsTrigger key={year} value={year}>{year}</TabsTrigger>)}
           </TabsList>
 
           <TabsContent value={activeYear} className="space-y-6">
-            <Card>
-              <CardHeader>
-                  <CardTitle>Master Yearly Summary - {activeYear}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard title="Opening Balance" value={`$${yearlySummary.totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                <StatCard title="Total Trades" value={String(yearlySummary.totalTrades)} />
-                <StatCard title="Total Withdrawals" value={`$${yearlySummary.totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                <StatCard title="Yearly Net P/L" value={`$${yearlySummary.totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={yearlySummary.totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
-                <StatCard title="Closing Balance" value={`$${yearlySummary.totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-              </CardContent>
-            </Card>
+            {!activeYearCalculatedData ? (
+                 <Card>
+                    <CardContent className="pt-6 text-center">
+                        <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                        <p className="mt-2 text-muted-foreground">Calculating data for {activeYear}...</p>
+                    </CardContent>
+                 </Card>
+            ): (
+                <>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Master Yearly Summary - {activeYear}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <StatCard title="Opening Balance" value={`$${yearlySummary.totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                        <StatCard title="Total Trades" value={String(yearlySummary.totalTrades)} />
+                        <StatCard title="Total Withdrawals" value={`$${yearlySummary.totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                        <StatCard title="Yearly Net P/L" value={`$${yearlySummary.totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={yearlySummary.totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
+                        <StatCard title="Closing Balance" value={`$${yearlySummary.totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                        </CardContent>
+                    </Card>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Yearly Targets</CardTitle>
-                  <CardDescription>Your progress towards your annual goals.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <TargetBar title="Income Target" actual={yearlySummary.totalYearlyNetPL} target={yearlySummary.incomeTarget} />
-                  <TargetBar title="Savings Target" actual={yearlySummary.totalYearlyNetPL - yearlySummary.totalWithdrawals} target={yearlySummary.savingsTarget} />
-                </CardContent>
-              </Card>
-               <Card>
-                <CardHeader>
-                  <CardTitle>Visualizations</CardTitle>
-                  <CardDescription>Projected growth and cash flow analysis.</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[250px] flex flex-col">
-                  <Tabs defaultValue="balance">
-                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="balance">Balance Growth</TabsTrigger>
-                        <TabsTrigger value="pnl">P/L vs Withdrawals</TabsTrigger>
+                    <div className="grid md:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader>
+                        <CardTitle>Yearly Targets</CardTitle>
+                        <CardDescription>Your progress towards your annual goals.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                        <TargetBar title="Income Target" actual={yearlySummary.totalYearlyNetPL} target={yearlySummary.incomeTarget} />
+                        <TargetBar title="Savings Target" actual={yearlySummary.totalYearlyNetPL - yearlySummary.totalWithdrawals} target={yearlySummary.savingsTarget} />
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                        <CardTitle>Visualizations</CardTitle>
+                        <CardDescription>Projected growth and cash flow analysis.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[250px] flex flex-col">
+                        <Tabs defaultValue="balance">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="balance">Balance Growth</TabsTrigger>
+                                <TabsTrigger value="pnl">P/L vs Withdrawals</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="balance" className="flex-1 -mx-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
+                                    <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
+                                    <Legend />
+                                    <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="#8884d8" fill="#8884d8" />
+                                    <Area type="monotone" dataKey="Online" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
+                                    <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="#ffc658" fill="#ffc658" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                            </TabsContent>
+                            <TabsContent value="pnl" className="flex-1 -mx-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
+                                        <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
+                                        <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
+                                        <Legend />
+                                        <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
+                                        <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </TabsContent>
+                        </Tabs>
+                        </CardContent>
+                    </Card>
+                    </div>
+                    
+                    <Tabs value={activeAccountType} onValueChange={setActiveAccountType}>
+                    <TabsList>
+                        {accountTypes.map(acc => <TabsTrigger key={acc} value={acc}>{acc}</TabsTrigger>)}
                     </TabsList>
-                    <TabsContent value="balance" className="flex-1 -mx-4">
-                       <ResponsiveContainer width="100%" height="100%">
-                         <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
-                            <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
-                            <Legend />
-                            <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="#8884d8" fill="#8884d8" />
-                            <Area type="monotone" dataKey="Online" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
-                            <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="#ffc658" fill="#ffc658" />
-                          </AreaChart>
-                       </ResponsiveContainer>
-                    </TabsContent>
-                     <TabsContent value="pnl" className="flex-1 -mx-4">
-                         <ResponsiveContainer width="100%" height="100%">
-                           <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
-                                <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
-                                <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
-                                <Legend />
-                                <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
-                                <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <Tabs value={activeAccountType} onValueChange={setActiveAccountType}>
-              <TabsList>
-                {accountTypes.map(acc => <TabsTrigger key={acc} value={acc}>{acc}</TabsTrigger>)}
-              </TabsList>
-              {accountTypes.map(acc => (
-                 <TabsContent key={acc} value={acc}>
-                    {yearData[acc] ? (
-                        <MonthlyPlanner 
-                            yearData={yearData[acc]} 
-                            onDataChange={handleDailyDataChange}
-                            accountType={acc}
-                        />
-                    ) : (
-                        <div className="flex items-center justify-center p-8">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                        </div>
-                    )}
-                </TabsContent>
-              ))}
-            </Tabs>
+                    {accountTypes.map(acc => (
+                        <TabsContent key={acc} value={acc}>
+                            {currentAccountPlannerData ? (
+                                <MonthlyPlanner 
+                                    yearData={currentAccountPlannerData} 
+                                    onDataChange={handleDailyDataChange}
+                                    accountType={acc}
+                                />
+                            ) : (
+                                <div className="flex items-center justify-center p-8">
+                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                </div>
+                            )}
+                        </TabsContent>
+                    ))}
+                    </Tabs>
+                </>
+            )}
           </TabsContent>
         </Tabs>
       </div>
