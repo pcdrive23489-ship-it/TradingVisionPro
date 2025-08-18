@@ -2,8 +2,17 @@
 "use client"
 
 import * as React from "react"
-import { Upload, Download, Trash2 } from "lucide-react"
-
+import { Upload, Download, Trash2, Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import MainLayout from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,6 +52,7 @@ export default function MasterDataPage() {
   const { toast } = useToast();
   const [newlyImportedTrades, setNewlyImportedTrades] = React.useState<Trade[] | null>(null);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = React.useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
 
   // Function to trigger CSV download
   const downloadCSV = (trades: Trade[]) => {
@@ -73,38 +83,46 @@ export default function MasterDataPage() {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim() !== '');
-        if (lines.length < 2) {
-            toast({ title: "Error", description: "CSV file is empty or has no data.", variant: "destructive" });
-            return;
-        }
-        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        const newTrades: Trade[] = lines.slice(1).map(line => {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          const tradeObject: any = {};
-          header.forEach((h, i) => {
-            const value = values[i];
-            const numberFields = ['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd', 'risk_reward_ratio', 'pips', 'profit_inr'];
-
-            if (numberFields.includes(h)) {
-              tradeObject[h] = parseFloat(value) || 0;
-            } else if (h === 'mistakes' && value) {
-              tradeObject[h] = value.split(';');
-            } else {
-              tradeObject[h] = value;
-            }
-          });
-
-          // INR to USD conversion
-          if (tradeObject.profit_inr) {
-            tradeObject.profit_usd = tradeObject.profit_inr / 89;
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n').filter(line => line.trim() !== '');
+          if (lines.length < 2) {
+              toast({ title: "Error", description: "CSV file is empty or has no data.", variant: "destructive" });
+              return;
           }
-          
-          return tradeObject as Trade;
-        });
-        setNewlyImportedTrades(newTrades);
-        setIsImportConfirmOpen(true);
+          const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          const newTrades: Trade[] = lines.slice(1).map(line => {
+            const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const tradeObject: any = {};
+            header.forEach((h, i) => {
+              const value = values[i] || "";
+              const numberFields = ['ticket', 'lots', 'original_position_size', 'opening_price', 'closing_price', 'stop_loss', 'take_profit', 'commission_usd', 'swap_usd', 'profit_usd', 'equity_usd', 'risk_reward_ratio', 'pips', 'profit_inr'];
+
+              if (numberFields.includes(h)) {
+                tradeObject[h] = parseFloat(value) || 0;
+              } else if (h === 'mistakes' && value) {
+                tradeObject[h] = value.split(';').filter(m => m);
+              } else {
+                tradeObject[h] = value;
+              }
+            });
+
+            // INR to USD conversion
+            if (tradeObject.profit_inr && !tradeObject.profit_usd) {
+              tradeObject.profit_usd = tradeObject.profit_inr / 89; // Example rate
+            }
+            
+            return tradeObject as Trade;
+          });
+          setNewlyImportedTrades(newTrades);
+          setIsImportConfirmOpen(true);
+        } catch (error) {
+           console.error("CSV Parsing Error:", error);
+           toast({ title: "Error", description: "Failed to parse the CSV file. Please check its format.", variant: "destructive" });
+        }
+      };
+      reader.onerror = () => {
+        toast({ title: "Error", description: "Could not read the selected file.", variant: "destructive" });
       };
       reader.readAsText(file);
        // Reset file input so the same file can be selected again
@@ -133,7 +151,7 @@ export default function MasterDataPage() {
         });
     }
 
-    setTrades(updatedTrades);
+    setTrades(updatedTrades); // This now correctly saves to localStorage
     setNewlyImportedTrades(null);
     setIsImportConfirmOpen(false);
   }
@@ -151,6 +169,8 @@ export default function MasterDataPage() {
             description: "Failed to delete trading data.",
             variant: "destructive"
         })
+    } finally {
+        setIsDeleteConfirmOpen(false);
     }
   };
 
@@ -181,10 +201,10 @@ export default function MasterDataPage() {
                     accept=".csv"
                     className="hidden"
                 />
-                <Button variant="outline" onClick={() => downloadCSV(trades)}>
+                <Button variant="outline" onClick={() => downloadCSV(trades)} disabled={trades.length === 0}>
                     <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
-                 <Button variant="destructive" onClick={deleteAllTrades}>
+                 <Button variant="destructive" onClick={() => setIsDeleteConfirmOpen(true)} disabled={trades.length === 0}>
                     <Trash2 className="mr-2 h-4 w-4" /> Delete All Data
                 </Button>
             </CardContent>
@@ -209,24 +229,67 @@ export default function MasterDataPage() {
               <TableBody>
                 {loading ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center">Loading trades...</TableCell>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                           <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                        </TableCell>
                     </TableRow>
-                ) : trades.map((trade, index) => (
-                  <TableRow key={`${trade.ticket}-${trade.closing_time_utc}-${index}`}>
-                    <TableCell className="font-medium">{trade.symbol}</TableCell>
-                    <TableCell>{trade.type}</TableCell>
-                    <TableCell>{trade.close_reason}</TableCell>
-                    <TableCell>{format(new Date(trade.closing_time_utc), 'Pp')}</TableCell>
-                    <TableCell className={`text-right font-semibold ${(trade.profit_usd || 0) >= 0 ? "text-accent" : "text-destructive"}`}>
-                      ${(trade.profit_usd || 0).toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                ) : trades.length > 0 ? (
+                  trades.map((trade, index) => (
+                    <TableRow key={`${trade.ticket}-${trade.closing_time_utc}-${index}`}>
+                      <TableCell className="font-medium">{trade.symbol}</TableCell>
+                      <TableCell>{trade.type}</TableCell>
+                      <TableCell>{trade.close_reason}</TableCell>
+                      <TableCell>{trade.closing_time_utc ? format(new Date(trade.closing_time_utc), 'Pp') : 'N/A'}</TableCell>
+                      <TableCell className={`text-right font-semibold ${(trade.profit_usd || 0) >= 0 ? "text-accent" : "text-destructive"}`}>
+                        ${(trade.profit_usd || 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                   <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                            No trades found. Import your data to get started.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </div>
+      
+       <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Import</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to import {newlyImportedTrades?.length || 0} trades. Would you like to replace your existing data or append to it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setNewlyImportedTrades(null)}>Cancel</AlertDialogCancel>
+            <Button variant="outline" onClick={() => handleImportConfirm('append')}>Append</Button>
+            <Button onClick={() => handleImportConfirm('replace')}>Replace</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete all your trading data from this device.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAllData} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete all data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   )
 }

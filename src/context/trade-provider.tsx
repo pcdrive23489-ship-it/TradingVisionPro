@@ -10,7 +10,7 @@ interface TradesContextType {
   addTrade: (trade: Omit<Trade, 'ticket'>) => void;
   updateTrade: (trade: Trade) => void;
   deleteTrade: (ticket: number) => void;
-  deleteAllTrades: () => void;
+  deleteAllTrades: () => Promise<void>;
   loading: boolean;
 }
 
@@ -35,10 +35,11 @@ export function TradesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setTrades = (newTrades: Trade[]) => {
-     setLoading(true);
+    setLoading(true);
     try {
-      localStorage.setItem("trades", JSON.stringify(newTrades));
-      setTradesState(newTrades);
+      const sortedTrades = newTrades.sort((a,b) => new Date(b.closing_time_utc).getTime() - new Date(a.closing_time_utc).getTime());
+      localStorage.setItem("trades", JSON.stringify(sortedTrades));
+      setTradesState(sortedTrades);
     } catch (error) {
       console.error("Failed to save trades to localStorage", error);
     } finally {
@@ -63,9 +64,17 @@ export function TradesProvider({ children }: { children: React.ReactNode }) {
      setTrades(updatedTrades);
   }
 
-  const deleteAllTrades = () => {
-    localStorage.removeItem("trades");
-    setTradesState([]);
+  const deleteAllTrades = async () => {
+    setLoading(true);
+    try {
+        localStorage.removeItem("trades");
+        setTradesState([]);
+    } catch (error) {
+        console.error("Failed to delete trades from localStorage", error);
+        throw error;
+    } finally {
+        setLoading(false);
+    }
   }
   
   return (
