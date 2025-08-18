@@ -1,3 +1,4 @@
+
 export type Session = "Asian" | "London" | "New York";
 
 export type Trade = {
@@ -32,8 +33,8 @@ export type Trade = {
 export type MarketData = {
   pair: string;
   price: number;
+  initialPrice: number;
   change: number;
-  sentiment: "buy" | "sell" | "neutral";
   sentimentScore: number;
-  volatility: "high" | "medium" | "low";
+  volatilityScore: number;
 };

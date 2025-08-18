@@ -14,6 +14,7 @@ import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
 import type { YearlyData } from "@/lib/planner-calculations"
 import { calculatePlannerData } from "@/lib/planner-calculations"
+import { AreaChart, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, Bar, Legend, ResponsiveContainer } from "recharts"
 
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
@@ -362,6 +363,43 @@ export default function PlannerPage() {
   }
 
   const currentYearData = yearData[activeAccountType];
+  
+  const visualizationData = React.useMemo(() => {
+    if (!yearData) return { balanceData: [], pnlData: [] };
+    
+    const balanceData = months.map(month => {
+        const data: { month: string, [key: string]: number | string } = { month };
+        accountTypes.forEach(accType => {
+            const monthLogs = yearData[accType]?.monthly[month]?.log;
+            if (monthLogs && monthLogs.length > 0) {
+                 data[accType] = monthLogs[monthLogs.length - 1].closing;
+            } else {
+                data[accType] = 0;
+            }
+        });
+        return data;
+    });
+
+    const pnlData = months.map(month => {
+        let monthlyPnl = 0;
+        let monthlyWithdrawals = 0;
+        accountTypes.forEach(accType => {
+            const monthLogs = yearData[accType]?.monthly[month]?.log;
+            if (monthLogs) {
+                monthlyPnl += monthLogs.reduce((sum, day) => sum + day.pnl, 0);
+                monthlyWithdrawals += monthLogs.reduce((sum, day) => sum + day.withdrawals, 0);
+            }
+        });
+        return {
+            month,
+            netPnl: monthlyPnl,
+            withdrawals: monthlyWithdrawals
+        };
+    });
+
+    return { balanceData, pnlData };
+  }, [yearData]);
+
 
   if (!currentYearData) {
     return (
@@ -430,13 +468,45 @@ export default function PlannerPage() {
                   <TargetBar title="Savings Target" actual={totalYearlyNetPL - totalWithdrawals} target={currentYearData.savingsTarget} />
                 </CardContent>
               </Card>
-              <Card>
+               <Card>
                 <CardHeader>
                   <CardTitle>Visualizations</CardTitle>
-                  <CardDescription>Charts will be added here soon.</CardDescription>
+                  <CardDescription>Projected growth and cash flow analysis.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center text-muted-foreground h-40">
-                  <p>Charts coming soon!</p>
+                <CardContent className="h-[250px] flex flex-col">
+                  <Tabs defaultValue="balance">
+                     <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="balance">Balance Growth</TabsTrigger>
+                        <TabsTrigger value="pnl">P/L vs Withdrawals</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="balance" className="flex-1 -mx-4">
+                       <ResponsiveContainer width="100%" height="100%">
+                         <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
+                            <Tooltip formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name]}/>
+                            <Legend />
+                            <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="#8884d8" fill="#8884d8" />
+                            <Area type="monotone" dataKey="Online" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
+                            <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="#ffc658" fill="#ffc658" />
+                          </AreaChart>
+                       </ResponsiveContainer>
+                    </TabsContent>
+                     <TabsContent value="pnl" className="flex-1 -mx-4">
+                         <ResponsiveContainer width="100%" height="100%">
+                           <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
+                                <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
+                                <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`}/>
+                                <Legend />
+                                <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
+                                <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </TabsContent>
+                  </Tabs>
                 </CardContent>
               </Card>
             </div>
@@ -461,5 +531,3 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
-
-    
