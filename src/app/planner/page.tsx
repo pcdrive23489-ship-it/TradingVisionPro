@@ -8,12 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { Wand2 } from "lucide-react"
+import { Loader2, Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
 import type { YearlyData } from "@/lib/planner-calculations"
-import { calculatePlannerData } from "@/lib/planner-calculations"
 import { AreaChart, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, Bar, Legend, ResponsiveContainer } from "recharts"
 
 
@@ -259,11 +258,11 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
 }
 
 export default function PlannerPage() {
-  const [masterData, setMasterData] = React.useState<Record<string, YearlyData> | null>(null);
-  const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const [yearData, setYearData] = React.useState<Record<string, YearlyDataForPlanner>>({});
+  const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const [activeAccountType, setActiveAccountType] = React.useState(accountTypes[0]);
-  
+  const [isLoading, setIsLoading] = React.useState(true);
+
   const runCalculations = React.useCallback((data: YearlyDataForPlanner, accountType: string): YearlyDataForPlanner => {
     const newData = JSON.parse(JSON.stringify(data)); 
 
@@ -311,30 +310,36 @@ export default function PlannerPage() {
     
     return newData;
   }, []);
-
+  
   React.useEffect(() => {
-    try {
-      const savedData = localStorage.getItem("plannerMasterData");
-      const parsedMasterData = savedData ? JSON.parse(savedData) : null;
-      setMasterData(parsedMasterData);
-      
-      const initialYearData = generateInitialYearData(activeYear, parsedMasterData ? parsedMasterData[activeYear] : null);
-      
-      const newYearData: Record<string, YearlyDataForPlanner> = {};
-      accountTypes.forEach(accType => {
-        newYearData[accType] = runCalculations(initialYearData, accType);
-      });
-      setYearData(newYearData);
-
-    } catch (error) {
-      console.error("Failed to load or parse planner data:", error);
-       const initialYearData = generateInitialYearData(activeYear, null);
-      const newYearData: Record<string, YearlyDataForPlanner> = {};
-      accountTypes.forEach(accType => {
-        newYearData[accType] = runCalculations(initialYearData, accType);
-      });
-      setYearData(newYearData);
-    }
+    const loadAndCalculateData = () => {
+        setIsLoading(true);
+        try {
+            const savedData = localStorage.getItem("plannerMasterData");
+            const masterData = savedData ? JSON.parse(savedData) : null;
+            const yearMasterData = masterData ? masterData[activeYear] : null;
+            
+            const initialDataForYear = generateInitialYearData(activeYear, yearMasterData);
+            
+            const calculatedData: Record<string, YearlyDataForPlanner> = {};
+            accountTypes.forEach(accType => {
+                calculatedData[accType] = runCalculations(initialDataForYear, accType);
+            });
+            setYearData(calculatedData);
+        } catch (error) {
+            console.error("Failed to load or calculate planner data:", error);
+            const initialDataForYear = generateInitialYearData(activeYear, null);
+            const calculatedData: Record<string, YearlyDataForPlanner> = {};
+            accountTypes.forEach(accType => {
+                calculatedData[accType] = runCalculations(initialDataForYear, accType);
+            });
+            setYearData(calculatedData);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    loadAndCalculateData();
   }, [activeYear, runCalculations]);
   
   const handleDailyDataChange = (month: string, dayIndex: number, field: keyof DailyLog, value: any) => {
@@ -362,10 +367,10 @@ export default function PlannerPage() {
     setActiveYear(year);
   }
 
-  const currentYearData = yearData[activeAccountType];
+  const currentYearDataForActiveAccount = yearData[activeAccountType];
   
   const visualizationData = React.useMemo(() => {
-    if (!yearData) return { balanceData: [], pnlData: [] };
+    if (Object.keys(yearData).length === 0) return { balanceData: [], pnlData: [] };
     
     const balanceData = months.map(month => {
         const data: { month: string, [key: string]: number | string } = { month };
@@ -401,16 +406,26 @@ export default function PlannerPage() {
   }, [yearData]);
 
 
-  if (!currentYearData) {
+  if (isLoading) {
     return (
         <MainLayout>
-          <div className="flex items-center justify-center h-full">Loading Planner Data...</div>
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
         </MainLayout>
     );
   }
+
+  if (!currentYearDataForActiveAccount) {
+    return (
+        <MainLayout>
+            <div className="flex items-center justify-center h-full">Error loading planner data.</div>
+        </MainLayout>
+    )
+  }
   
-  const totalOpeningBalance = Object.values(currentYearData.openingBalance).reduce((a, b) => a + b, 0);
-  const totalClosingBalance = Object.values(currentYearData.closingBalance).reduce((a, b) => a + b, 0);
+  const totalOpeningBalance = Object.values(currentYearDataForActiveAccount.openingBalance).reduce((a, b) => a + b, 0);
+  const totalClosingBalance = Object.values(yearData).reduce((sum, accData) => sum + Object.values(accData.closingBalance).reduce((a,b) => a + b, 0), 0) / accountTypes.length;
   const totalYearlyNetPL = Object.values(yearData).reduce((sum, accData) => sum + accData.yearlyNetPL, 0);
   const totalWithdrawals = Object.values(yearData).reduce((sum, accData) => sum + accData.totalWithdrawals, 0);
 
@@ -450,7 +465,7 @@ export default function PlannerPage() {
               </CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <StatCard title="Opening Balance" value={`$${totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                <StatCard title="Total Trades" value={String(currentYearData.totalTrades)} />
+                <StatCard title="Total Trades" value={String(currentYearDataForActiveAccount.totalTrades)} />
                 <StatCard title="Total Withdrawals" value={`$${totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
                 <StatCard title="Yearly Net P/L" value={`$${totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
                 <StatCard title="Closing Balance" value={`$${totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
@@ -464,8 +479,8 @@ export default function PlannerPage() {
                   <CardDescription>Your progress towards your annual goals.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <TargetBar title="Income Target" actual={totalYearlyNetPL} target={currentYearData.incomeTarget} />
-                  <TargetBar title="Savings Target" actual={totalYearlyNetPL - totalWithdrawals} target={currentYearData.savingsTarget} />
+                  <TargetBar title="Income Target" actual={totalYearlyNetPL} target={currentYearDataForActiveAccount.incomeTarget} />
+                  <TargetBar title="Savings Target" actual={totalYearlyNetPL - totalWithdrawals} target={currentYearDataForActiveAccount.savingsTarget} />
                 </CardContent>
               </Card>
                <Card>
@@ -531,3 +546,5 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
+
+    
