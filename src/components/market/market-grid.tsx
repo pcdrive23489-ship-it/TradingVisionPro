@@ -70,6 +70,15 @@ function PairCard({ pairData }: { pairData: MarketData }) {
 }
 
 export function MarketGrid({ marketData }: { marketData: MarketData[] }) {
+  if (!marketData || marketData.length === 0) {
+    return (
+        <Card>
+            <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground">No market data to display.</p>
+            </CardContent>
+        </Card>
+    )
+  }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {marketData.map(pair => (
