@@ -45,7 +45,8 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
             const monthData = newData[year].monthly[month];
             
             accountTypes.forEach(accType => {
-                let lastDayClosing = runningBalances[accType] || 0;
+                let monthOpeningBalance = runningBalances[accType] || 0;
+                let lastDayClosing = monthOpeningBalance;
                 
                 const dailyProfitPerc = monthData.profitPercentage[accType] || 0;
                 const totalMonthlyWithdrawal = monthData.withdrawals[accType] || 0;
