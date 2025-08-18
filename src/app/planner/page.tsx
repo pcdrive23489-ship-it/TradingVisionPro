@@ -316,15 +316,19 @@ export default function PlannerPage() {
             const savedData = localStorage.getItem("plannerMasterData");
             const masterData = savedData ? JSON.parse(savedData) : null;
             
-            const calculatedDataForAllAccounts: Record<string, YearlyDataForPlanner> = {};
-            
-            accountTypes.forEach(accType => {
-                const yearMasterData = masterData ? masterData[activeYear] : null;
-                const initialDataForYear = generateInitialYearData(activeYear, yearMasterData);
-                calculatedDataForAllAccounts[accType] = runCalculations(initialDataForYear, accType);
+            const calculatedDataForAllYears: { [year: string]: { [accType: string]: YearlyDataForPlanner } } = {};
+
+            fiscalYears.forEach(year => {
+                const yearMasterData = masterData ? masterData[year] : null;
+                const initialDataForYear = generateInitialYearData(year, yearMasterData);
+                calculatedDataForAllYears[year] = {};
+                accountTypes.forEach(accType => {
+                    calculatedDataForAllYears[year][accType] = runCalculations(initialDataForYear, accType);
+                });
             });
-            
-            setYearData(calculatedDataForAllAccounts);
+
+            // This is a simplified approach, for this page we only care about the activeYear
+            setYearData(calculatedDataForAllYears[activeYear]);
 
         } catch (error) {
             console.error("Failed to load or calculate planner data:", error);
@@ -369,62 +373,55 @@ export default function PlannerPage() {
   }
 
   const { yearlySummary, visualizationData } = React.useMemo(() => {
-    if (Object.keys(yearData).length === 0) {
-      return { 
-        yearlySummary: {
-          totalOpeningBalance: 0,
-          totalClosingBalance: 0,
-          totalYearlyNetPL: 0,
-          totalWithdrawals: 0,
-          incomeTarget: 0,
-          savingsTarget: 0,
-          totalTrades: 0,
-        },
-        visualizationData: { balanceData: [], pnlData: [] }
-      };
-    }
-
     const summary = {
-      totalOpeningBalance: 0,
-      totalClosingBalance: 0,
-      totalYearlyNetPL: 0,
-      totalWithdrawals: 0,
-      incomeTarget: yearData[accountTypes[0]].incomeTarget,
-      savingsTarget: yearData[accountTypes[0]].savingsTarget,
-      totalTrades: yearData[accountTypes[0]].totalTrades,
+        totalOpeningBalance: 0,
+        totalClosingBalance: 0,
+        totalYearlyNetPL: 0,
+        totalWithdrawals: 0,
+        incomeTarget: 0,
+        savingsTarget: 0,
+        totalTrades: 0,
     };
 
+    if (Object.keys(yearData).length === 0) {
+        return { yearlySummary: summary, visualizationData: { balanceData: [], pnlData: [] } };
+    }
+
+    summary.incomeTarget = yearData[accountTypes[0]]?.incomeTarget || 0;
+    summary.savingsTarget = yearData[accountTypes[0]]?.savingsTarget || 0;
+    summary.totalTrades = yearData[accountTypes[0]]?.totalTrades || 0;
+
     accountTypes.forEach(accType => {
-        summary.totalOpeningBalance += yearData[accType].openingBalance[accType] || 0;
-        summary.totalClosingBalance += yearData[accType].closingBalance[accType] || 0;
-        summary.totalYearlyNetPL += yearData[accType].yearlyNetPL || 0;
-        summary.totalWithdrawals += yearData[accType].totalWithdrawals || 0;
+        const data = yearData[accType];
+        if (data) {
+            summary.totalOpeningBalance += data.openingBalance[accType] || 0;
+            summary.totalClosingBalance += data.closingBalance[accType] || 0;
+            summary.totalYearlyNetPL += data.yearlyNetPL || 0;
+            summary.totalWithdrawals += data.totalWithdrawals || 0;
+        }
     });
 
     const balanceData = months.map(month => {
         const monthEntry: { month: string, [key: string]: number | string } = { month };
-        let totalClosing = 0;
         accountTypes.forEach(accType => {
             const monthLogs = yearData[accType]?.monthly[month]?.log;
             const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : 0;
             monthEntry[accType] = closing;
-            totalClosing += closing;
         });
-        monthEntry.total = totalClosing;
         return monthEntry;
     });
 
     const pnlData = months.map(month => {
-        let monthlyPnl = 0;
-        let monthlyWithdrawals = 0;
+        let netPnl = 0;
+        let withdrawals = 0;
         accountTypes.forEach(accType => {
             const monthLogs = yearData[accType]?.monthly[month]?.log;
             if (monthLogs) {
-                monthlyPnl += monthLogs.reduce((sum, day) => sum + day.pnl, 0);
-                monthlyWithdrawals += monthLogs.reduce((sum, day) => sum + day.withdrawals, 0);
+                netPnl += monthLogs.reduce((sum, day) => sum + day.pnl, 0);
+                withdrawals += monthLogs.reduce((sum, day) => sum + day.withdrawals, 0);
             }
         });
-        return { month, netPnl: monthlyPnl, withdrawals: monthlyWithdrawals };
+        return { month, netPnl, withdrawals };
     });
 
     return { yearlySummary: summary, visualizationData: { balanceData, pnlData } };
@@ -444,7 +441,9 @@ export default function PlannerPage() {
   if (!currentYearDataForActiveAccount) {
     return (
         <MainLayout>
-            <div className="flex items-center justify-center h-full">Error loading planner data for {activeAccountType}.</div>
+            <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
         </MainLayout>
     )
   }
