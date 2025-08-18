@@ -283,13 +283,11 @@ export default function PlannerPage() {
         monthData.log.forEach((day: DailyLog) => {
             day.opening = lastDayClosing;
             
-            // If return is manually set, use it. Otherwise, use calculated daily profit.
             const returnPercent = day.return > 0 ? day.return : dailyProfitPerc;
             day.return = returnPercent;
             
             day.pnl = parseFloat(((day.opening * returnPercent) / 100).toFixed(2));
             
-             // If withdrawal is manually set, use it. Otherwise, use calculated daily withdrawal.
             const withdrawalAmount = day.withdrawals > 0 ? day.withdrawals : dailyWithdrawal;
             day.withdrawals = parseFloat(withdrawalAmount.toFixed(2));
             
@@ -317,21 +315,23 @@ export default function PlannerPage() {
         try {
             const savedData = localStorage.getItem("plannerMasterData");
             const masterData = savedData ? JSON.parse(savedData) : null;
-            const yearMasterData = masterData ? masterData[activeYear] : null;
             
-            const initialDataForYear = generateInitialYearData(activeYear, yearMasterData);
+            const calculatedDataForAllAccounts: Record<string, YearlyDataForPlanner> = {};
             
-            const calculatedData: Record<string, YearlyDataForPlanner> = {};
             accountTypes.forEach(accType => {
-                calculatedData[accType] = runCalculations(initialDataForYear, accType);
+                const yearMasterData = masterData ? masterData[activeYear] : null;
+                const initialDataForYear = generateInitialYearData(activeYear, yearMasterData);
+                calculatedDataForAllAccounts[accType] = runCalculations(initialDataForYear, accType);
             });
-            setYearData(calculatedData);
+            
+            setYearData(calculatedDataForAllAccounts);
+
         } catch (error) {
             console.error("Failed to load or calculate planner data:", error);
-            const initialDataForYear = generateInitialYearData(activeYear, null);
+            const initialData = generateInitialYearData(activeYear, null);
             const calculatedData: Record<string, YearlyDataForPlanner> = {};
             accountTypes.forEach(accType => {
-                calculatedData[accType] = runCalculations(initialDataForYear, accType);
+                calculatedData[accType] = runCalculations(initialData, accType);
             });
             setYearData(calculatedData);
         } finally {
@@ -354,10 +354,11 @@ export default function PlannerPage() {
           numericValue = parseFloat(value) || 0;
         }
 
-        (newLog[dayIndex] as any)[field] = numericValue;
-        newData[activeAccountType].monthly[month].log = newLog;
-
-        newData[activeAccountType] = runCalculations(newData[activeAccountType], activeAccountType);
+        if(newLog[dayIndex]) {
+          (newLog[dayIndex] as any)[field] = numericValue;
+          newData[activeAccountType].monthly[month].log = newLog;
+          newData[activeAccountType] = runCalculations(newData[activeAccountType], activeAccountType);
+        }
 
         return newData;
       });
@@ -367,22 +368,50 @@ export default function PlannerPage() {
     setActiveYear(year);
   }
 
-  const currentYearDataForActiveAccount = yearData[activeAccountType];
-  
-  const visualizationData = React.useMemo(() => {
-    if (Object.keys(yearData).length === 0) return { balanceData: [], pnlData: [] };
-    
+  const { yearlySummary, visualizationData } = React.useMemo(() => {
+    if (Object.keys(yearData).length === 0) {
+      return { 
+        yearlySummary: {
+          totalOpeningBalance: 0,
+          totalClosingBalance: 0,
+          totalYearlyNetPL: 0,
+          totalWithdrawals: 0,
+          incomeTarget: 0,
+          savingsTarget: 0,
+          totalTrades: 0,
+        },
+        visualizationData: { balanceData: [], pnlData: [] }
+      };
+    }
+
+    const summary = {
+      totalOpeningBalance: 0,
+      totalClosingBalance: 0,
+      totalYearlyNetPL: 0,
+      totalWithdrawals: 0,
+      incomeTarget: yearData[accountTypes[0]].incomeTarget,
+      savingsTarget: yearData[accountTypes[0]].savingsTarget,
+      totalTrades: yearData[accountTypes[0]].totalTrades,
+    };
+
+    accountTypes.forEach(accType => {
+        summary.totalOpeningBalance += yearData[accType].openingBalance[accType] || 0;
+        summary.totalClosingBalance += yearData[accType].closingBalance[accType] || 0;
+        summary.totalYearlyNetPL += yearData[accType].yearlyNetPL || 0;
+        summary.totalWithdrawals += yearData[accType].totalWithdrawals || 0;
+    });
+
     const balanceData = months.map(month => {
-        const data: { month: string, [key: string]: number | string } = { month };
+        const monthEntry: { month: string, [key: string]: number | string } = { month };
+        let totalClosing = 0;
         accountTypes.forEach(accType => {
             const monthLogs = yearData[accType]?.monthly[month]?.log;
-            if (monthLogs && monthLogs.length > 0) {
-                 data[accType] = monthLogs[monthLogs.length - 1].closing;
-            } else {
-                data[accType] = 0;
-            }
+            const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : 0;
+            monthEntry[accType] = closing;
+            totalClosing += closing;
         });
-        return data;
+        monthEntry.total = totalClosing;
+        return monthEntry;
     });
 
     const pnlData = months.map(month => {
@@ -395,17 +424,12 @@ export default function PlannerPage() {
                 monthlyWithdrawals += monthLogs.reduce((sum, day) => sum + day.withdrawals, 0);
             }
         });
-        return {
-            month,
-            netPnl: monthlyPnl,
-            withdrawals: monthlyWithdrawals
-        };
+        return { month, netPnl: monthlyPnl, withdrawals: monthlyWithdrawals };
     });
 
-    return { balanceData, pnlData };
+    return { yearlySummary: summary, visualizationData: { balanceData, pnlData } };
   }, [yearData]);
-
-
+  
   if (isLoading) {
     return (
         <MainLayout>
@@ -416,18 +440,14 @@ export default function PlannerPage() {
     );
   }
 
+  const currentYearDataForActiveAccount = yearData[activeAccountType];
   if (!currentYearDataForActiveAccount) {
     return (
         <MainLayout>
-            <div className="flex items-center justify-center h-full">Error loading planner data.</div>
+            <div className="flex items-center justify-center h-full">Error loading planner data for {activeAccountType}.</div>
         </MainLayout>
     )
   }
-  
-  const totalOpeningBalance = Object.values(currentYearDataForActiveAccount.openingBalance).reduce((a, b) => a + b, 0);
-  const totalClosingBalance = Object.values(yearData).reduce((sum, accData) => sum + Object.values(accData.closingBalance).reduce((a,b) => a + b, 0), 0) / accountTypes.length;
-  const totalYearlyNetPL = Object.values(yearData).reduce((sum, accData) => sum + accData.yearlyNetPL, 0);
-  const totalWithdrawals = Object.values(yearData).reduce((sum, accData) => sum + accData.totalWithdrawals, 0);
 
   return (
     <MainLayout>
@@ -464,11 +484,11 @@ export default function PlannerPage() {
                   <CardTitle>Master Yearly Summary - {activeYear}</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard title="Opening Balance" value={`$${totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                <StatCard title="Total Trades" value={String(currentYearDataForActiveAccount.totalTrades)} />
-                <StatCard title="Total Withdrawals" value={`$${totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                <StatCard title="Yearly Net P/L" value={`$${totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
-                <StatCard title="Closing Balance" value={`$${totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                <StatCard title="Opening Balance" value={`$${yearlySummary.totalOpeningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                <StatCard title="Total Trades" value={String(yearlySummary.totalTrades)} />
+                <StatCard title="Total Withdrawals" value={`$${yearlySummary.totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+                <StatCard title="Yearly Net P/L" value={`$${yearlySummary.totalYearlyNetPL.toLocaleString(undefined, {minimumFractionDigits: 2})}`} valueClassName={yearlySummary.totalYearlyNetPL >= 0 ? 'text-accent' : 'text-destructive'} />
+                <StatCard title="Closing Balance" value={`$${yearlySummary.totalClosingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
               </CardContent>
             </Card>
 
@@ -479,8 +499,8 @@ export default function PlannerPage() {
                   <CardDescription>Your progress towards your annual goals.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <TargetBar title="Income Target" actual={totalYearlyNetPL} target={currentYearDataForActiveAccount.incomeTarget} />
-                  <TargetBar title="Savings Target" actual={totalYearlyNetPL - totalWithdrawals} target={currentYearDataForActiveAccount.savingsTarget} />
+                  <TargetBar title="Income Target" actual={yearlySummary.totalYearlyNetPL} target={yearlySummary.incomeTarget} />
+                  <TargetBar title="Savings Target" actual={yearlySummary.totalYearlyNetPL - yearlySummary.totalWithdrawals} target={yearlySummary.savingsTarget} />
                 </CardContent>
               </Card>
                <Card>
@@ -500,7 +520,7 @@ export default function PlannerPage() {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
                             <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
-                            <Tooltip formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name]}/>
+                            <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
                             <Legend />
                             <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="#8884d8" fill="#8884d8" />
                             <Area type="monotone" dataKey="Online" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
@@ -514,7 +534,7 @@ export default function PlannerPage() {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
                                 <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
-                                <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`}/>
+                                <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
                                 <Legend />
                                 <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
                                 <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
@@ -531,12 +551,18 @@ export default function PlannerPage() {
                 {accountTypes.map(acc => <TabsTrigger key={acc} value={acc}>{acc}</TabsTrigger>)}
               </TabsList>
               {accountTypes.map(acc => (
-                <TabsContent key={acc} value={acc}>
-                   <MonthlyPlanner 
-                    yearData={yearData[acc]} 
-                    onDataChange={handleDailyDataChange}
-                    accountType={acc}
-                  />
+                 <TabsContent key={acc} value={acc}>
+                    {yearData[acc] ? (
+                        <MonthlyPlanner 
+                            yearData={yearData[acc]} 
+                            onDataChange={handleDailyDataChange}
+                            accountType={acc}
+                        />
+                    ) : (
+                        <div className="flex items-center justify-center p-8">
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                        </div>
+                    )}
                 </TabsContent>
               ))}
             </Tabs>
@@ -546,5 +572,3 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
-
-    
