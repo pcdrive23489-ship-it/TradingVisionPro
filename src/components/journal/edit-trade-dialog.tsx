@@ -37,7 +37,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { mistakeTags } from "@/lib/data";
-import type { Trade } from "@/lib/types";
+import type { Trade, Session } from "@/lib/types";
+import { useTrades } from "@/context/trade-provider";
 
 const tradeSchema = z.object({
   symbol: z.string().min(1, "Symbol is required."),
@@ -47,6 +48,8 @@ const tradeSchema = z.object({
   lots: z.coerce.number().positive("Lots must be positive."),
   stop_loss: z.coerce.number().positive("Stop loss must be positive."),
   take_profit: z.coerce.number().positive("Take profit must be positive."),
+  commission_usd: z.coerce.number().min(0, "Commission cannot be negative.").optional().default(0),
+  swap_usd: z.coerce.number().min(0, "Swap cannot be negative.").optional().default(0),
   notes: z.string().optional(),
   mistakes: z.array(z.string()).optional(),
   chartUrl: z.any().optional(),
@@ -54,11 +57,21 @@ const tradeSchema = z.object({
 
 type TradeFormValues = z.infer<typeof tradeSchema>;
 
+const getSession = (date: Date): Session => {
+    const hour = date.getUTCHours();
+    if (hour >= 0 && hour < 8) return "Asian";
+    if (hour >= 7 && hour < 16) return "London";
+    if (hour >= 12 && hour < 21) return "New York";
+    return "London";
+};
+
+
 export function EditTradeDialog({ children, trade }: { children: React.ReactNode, trade: Trade }) {
   const [open, setOpen] = React.useState(false);
   const [selectedMistakes, setSelectedMistakes] = React.useState<string[]>(trade.mistakes || []);
   const [chartPreview, setChartPreview] = React.useState<string | null>(trade.chartUrl || null);
   const { toast } = useToast();
+  const { updateTrade } = useTrades();
 
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
@@ -70,6 +83,8 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
       lots: trade.lots || 0,
       stop_loss: trade.stop_loss || 0,
       take_profit: trade.take_profit || 0,
+      commission_usd: trade.commission_usd || 0,
+      swap_usd: trade.swap_usd || 0,
       notes: trade.notes || "",
       mistakes: trade.mistakes || [],
       chartUrl: trade.chartUrl || null
@@ -91,19 +106,42 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setChartPreview(reader.result as string);
-        form.setValue("chartUrl", file);
+        const result = reader.result as string;
+        setChartPreview(result);
+        form.setValue("chartUrl", result);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const onSubmit = (data: TradeFormValues) => {
-    console.log("Trade Updated:", { ...trade, ...data });
+    const isBuy = data.type === 'buy';
+
+    const pipValue = data.symbol.toLowerCase().includes('jpy') ? 0.01 : 0.0001;
+    const pips = (isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price) / pipValue;
+    
+    const lotSizeValue = data.lots * 100000;
+    const profit_usd = pips * pipValue * lotSizeValue / data.closing_price * data.lots - (data.commission_usd || 0) - (data.swap_usd || 0);
+
+    const potentialRewardPips = Math.abs(data.take_profit - data.opening_price) / pipValue;
+    const potentialRiskPips = Math.abs(data.opening_price - data.stop_loss) / pipValue;
+    const risk_reward_ratio = potentialRiskPips > 0 ? potentialRewardPips / potentialRiskPips : 0;
+
+    const updatedTrade: Trade = {
+      ...trade, // Keep original data like ticket, times etc.
+      ...data, // Ovewrite with form data
+      pips,
+      profit_usd,
+      risk_reward_ratio,
+      session: getSession(new Date(trade.closing_time_utc)),
+      mistake_1: data.mistakes ? data.mistakes[0] : undefined,
+    };
+    
+    updateTrade(updatedTrade);
+    
     toast({
       title: "Trade Updated",
       description: `Your ${data.symbol} trade has been updated successfully.`,
-      variant: "default",
     });
     setOpen(false);
   };
@@ -219,6 +257,34 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-2 gap-4">
+               <FormField
+                control={form.control}
+                name="commission_usd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Commission ($)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="swap_usd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Swap ($)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="md:col-span-2">
               <FormField
                 control={form.control}

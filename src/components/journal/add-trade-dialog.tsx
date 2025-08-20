@@ -37,14 +37,19 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { mistakeTags } from "@/lib/data";
+import { useTrades } from "@/context/trade-provider";
+import type { Session } from "@/lib/types";
 
 const tradeSchema = z.object({
-  pair: z.string().min(1, "Pair is required."),
-  direction: z.enum(["buy", "sell"]),
-  entryPrice: z.coerce.number().positive("Entry price must be positive."),
-  exitPrice: z.coerce.number().positive("Exit price must be positive."),
-  lotSize: z.coerce.number().positive("Lot size must be positive."),
-  stopLoss: z.coerce.number().positive("Stop loss must be positive."),
+  symbol: z.string().min(1, "Pair is required."),
+  type: z.enum(["buy", "sell"]),
+  opening_price: z.coerce.number().positive("Entry price must be positive."),
+  closing_price: z.coerce.number().positive("Exit price must be positive."),
+  lots: z.coerce.number().positive("Lot size must be positive."),
+  stop_loss: z.coerce.number().positive("Stop loss must be positive."),
+  take_profit: z.coerce.number().positive("Take profit must be positive."),
+  commission_usd: z.coerce.number().min(0, "Commission cannot be negative.").optional().default(0),
+  swap_usd: z.coerce.number().min(0, "Swap cannot be negative.").optional().default(0),
   notes: z.string().optional(),
   mistakes: z.array(z.string()).optional(),
   chartUrl: z.any().optional(),
@@ -52,21 +57,35 @@ const tradeSchema = z.object({
 
 type TradeFormValues = z.infer<typeof tradeSchema>;
 
+// Function to determine session based on time
+const getSession = (date: Date): Session => {
+    const hour = date.getUTCHours();
+    if (hour >= 0 && hour < 8) return "Asian"; // 00:00 - 08:00 UTC
+    if (hour >= 7 && hour < 16) return "London"; // 07:00 - 16:00 UTC
+    if (hour >= 12 && hour < 21) return "New York"; // 12:00 - 21:00 UTC
+    // Default fallback
+    return "London";
+};
+
 export function AddTradeDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const [selectedMistakes, setSelectedMistakes] = React.useState<string[]>([]);
   const [chartPreview, setChartPreview] = React.useState<string | null>(null);
   const { toast } = useToast();
+  const { addTrade } = useTrades();
 
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
     defaultValues: {
-      pair: "",
-      direction: "buy",
-      entryPrice: 0,
-      exitPrice: 0,
-      lotSize: 0,
-      stopLoss: 0,
+      symbol: "",
+      type: "buy",
+      opening_price: 0,
+      closing_price: 0,
+      lots: 0.1,
+      stop_loss: 0,
+      take_profit: 0,
+      commission_usd: 0,
+      swap_usd: 0,
       notes: "",
       mistakes: [],
       chartUrl: null,
@@ -89,19 +108,51 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setChartPreview(reader.result as string);
-        form.setValue("chartUrl", file);
+        form.setValue("chartUrl", reader.result as string); // Save as data URL
       };
       reader.readAsDataURL(file);
     }
   };
 
   const onSubmit = (data: TradeFormValues) => {
-    console.log("New Trade Submitted:", data);
+    const now = new Date();
+    const isBuy = data.type === 'buy';
+
+    // Calculate Pips
+    const pipValue = data.symbol.toLowerCase().includes('jpy') ? 0.01 : 0.0001;
+    const pips = (isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price) / pipValue;
+    
+    // Calculate P/L in USD
+    const lotSizeValue = data.lots * 100000;
+    const profit_usd = pips * pipValue * lotSizeValue / data.closing_price * data.lots - (data.commission_usd || 0) - (data.swap_usd || 0);
+
+    // Calculate Risk/Reward
+    const potentialRewardPips = Math.abs(data.take_profit - data.opening_price) / pipValue;
+    const potentialRiskPips = Math.abs(data.opening_price - data.stop_loss) / pipValue;
+    const risk_reward_ratio = potentialRiskPips > 0 ? potentialRewardPips / potentialRiskPips : 0;
+
+    const newTrade = {
+      ...data,
+      opening_time_utc: now.toISOString(),
+      closing_time_utc: now.toISOString(),
+      original_position_size: data.lots,
+      equity_usd: 0, // Not available in this form
+      margin_level: 'N/A',
+      close_reason: 'Manual Close',
+      pips,
+      profit_usd,
+      risk_reward_ratio,
+      session: getSession(now),
+      mistake_1: data.mistakes ? data.mistakes[0] : undefined,
+    };
+    
+    addTrade(newTrade);
+    
     toast({
       title: "Trade Logged",
-      description: `Your ${data.pair} trade has been saved successfully.`,
-      variant: "default",
+      description: `Your ${data.symbol} trade has been saved successfully.`,
     });
+
     setOpen(false);
     form.reset();
     setSelectedMistakes([]);
@@ -122,7 +173,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <FormField
               control={form.control}
-              name="pair"
+              name="symbol"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Currency Pair</FormLabel>
@@ -135,7 +186,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
             />
             <FormField
               control={form.control}
-              name="direction"
+              name="type"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Direction</FormLabel>
@@ -156,10 +207,10 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
             />
             <FormField
               control={form.control}
-              name="entryPrice"
+              name="opening_price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Entry Price</FormLabel>
+                  <FormLabel>Opening Price</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.0001" {...field} />
                   </FormControl>
@@ -169,10 +220,10 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
             />
             <FormField
               control={form.control}
-              name="exitPrice"
+              name="closing_price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Exit Price</FormLabel>
+                  <FormLabel>Closing Price</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.0001" {...field} />
                   </FormControl>
@@ -182,7 +233,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
             />
              <FormField
               control={form.control}
-              name="lotSize"
+              name="lots"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Lot Size</FormLabel>
@@ -195,7 +246,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
             />
              <FormField
               control={form.control}
-              name="stopLoss"
+              name="stop_loss"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Stop Loss</FormLabel>
@@ -206,6 +257,47 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="take_profit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Take Profit</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <div className="grid grid-cols-2 gap-4">
+               <FormField
+                control={form.control}
+                name="commission_usd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Commission ($)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="swap_usd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Swap ($)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="md:col-span-2">
               <FormField
                 control={form.control}
