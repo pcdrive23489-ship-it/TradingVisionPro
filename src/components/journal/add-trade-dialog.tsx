@@ -117,14 +117,15 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
   const onSubmit = (data: TradeFormValues) => {
     const now = new Date();
     const isBuy = data.type === 'buy';
+    const contractSize = 100000; // Standard lot size
 
     // Calculate Pips
     const pipValue = data.symbol.toLowerCase().includes('jpy') ? 0.01 : 0.0001;
     const pips = (isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price) / pipValue;
     
-    // Calculate P/L in USD
-    const lotSizeValue = data.lots * 100000;
-    const profit_usd = pips * pipValue * lotSizeValue / data.closing_price * data.lots - (data.commission_usd || 0) - (data.swap_usd || 0);
+    // Calculate P/L in USD - CORRECTED FORMULA
+    const priceDifference = isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price;
+    const profit_usd = (priceDifference * contractSize * data.lots) - (data.commission_usd || 0) - (data.swap_usd || 0);
 
     // Calculate Risk/Reward
     const potentialRewardPips = Math.abs(data.take_profit - data.opening_price) / pipValue;
@@ -212,7 +213,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
                 <FormItem>
                   <FormLabel>Opening Price</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.0001" {...field} />
+                    <Input type="number" step="0.00001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -225,7 +226,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
                 <FormItem>
                   <FormLabel>Closing Price</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.0001" {...field} />
+                    <Input type="number" step="0.00001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -251,7 +252,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
                 <FormItem>
                   <FormLabel>Stop Loss</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.0001" {...field} />
+                    <Input type="number" step="0.00001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -264,7 +265,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
                 <FormItem>
                   <FormLabel>Take Profit</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.0001" {...field} />
+                    <Input type="number" step="0.00001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
