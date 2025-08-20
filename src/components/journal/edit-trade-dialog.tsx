@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -62,15 +63,16 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
     defaultValues: {
-      symbol: trade.symbol,
-      type: trade.type,
-      opening_price: trade.opening_price,
-      closing_price: trade.closing_price,
-      lots: trade.lots,
-      stop_loss: trade.stop_loss,
-      take_profit: trade.take_profit,
-      notes: trade.notes,
+      symbol: trade.symbol || "",
+      type: trade.type || "buy",
+      opening_price: trade.opening_price || 0,
+      closing_price: trade.closing_price || 0,
+      lots: trade.lots || 0,
+      stop_loss: trade.stop_loss || 0,
+      take_profit: trade.take_profit || 0,
+      notes: trade.notes || "",
       mistakes: trade.mistakes || [],
+      chartUrl: trade.chartUrl || null
     },
   });
   

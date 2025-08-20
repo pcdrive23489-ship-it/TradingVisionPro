@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -60,8 +61,15 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
     defaultValues: {
+      pair: "",
       direction: "buy",
+      entryPrice: 0,
+      exitPrice: 0,
+      lotSize: 0,
+      stopLoss: 0,
+      notes: "",
       mistakes: [],
+      chartUrl: null,
     },
   });
   
