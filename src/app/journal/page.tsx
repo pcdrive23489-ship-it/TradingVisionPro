@@ -102,59 +102,7 @@ const calculateOverallMetrics = (trades: Trade[]) => {
   return { winRate, profitFactor, expectancy, biggestWin, biggestLoss };
 };
 
-const formatPnl = (pnl: number) => {
-    if (Math.abs(pnl) >= 1000) {
-        return `$${(pnl / 1000).toFixed(2)}K`;
-    }
-    return pnl.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
-
-
 // --- Sub-components ---
-function DayContent({ stats }: { stats?: DailyStats }) {
-    if (!stats || stats.trades === 0) {
-        return <div className="h-24 w-full" />;
-    }
-
-    const pnlClass = stats.pnl > 0 ? "text-green-600 dark:text-green-400" : stats.pnl < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
-
-    return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <div className="flex h-24 w-full flex-col justify-center items-center text-center space-y-1 p-1">
-                        <p className={cn("text-base font-bold", pnlClass)}>{formatPnl(stats.pnl)}</p>
-                        <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p>{stats.trades} trade{stats.trades !== 1 && 's'}</p>
-                            <p>{stats.avgRR.toFixed(2)}R, {stats.winRate.toFixed(0)}%</p>
-                        </div>
-                    </div>
-                </TooltipTrigger>
-                <TooltipContent className="bg-card border-border shadow-lg p-4 rounded-lg w-48">
-                    <div className="flex justify-between items-center mb-2">
-                        <p className="font-bold">{format(stats.date, 'MMM d, yyyy')}</p>
-                        <p className={cn("font-bold text-lg", pnlClass)}>{formatPnl(stats.pnl)}</p>
-                    </div>
-                    <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Trades:</span>
-                            <span>{stats.trades}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Win Rate:</span>
-                            <span>{stats.winRate.toFixed(0)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Avg R:R:</span>
-                            <span>{stats.avgRR.toFixed(1)}</span>
-                        </div>
-                    </div>
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
-    );
-}
-
 function MetricWidget({ title, value, unit, description }: { title: string, value: string, unit?: string, description: string }) {
     return (
         <Card className="bg-card/50">
@@ -272,19 +220,13 @@ export default function JournalPage() {
             <div className="lg:col-span-9">
                  <Card>
                     <CardContent className="p-2 sm:p-4">
-                        <Calendar
+                       <Calendar
                             month={month}
                             onMonthChange={setMonth}
                             mode="single"
                             selected={selectedDay}
                             onSelect={setSelectedDay}
                             className="p-0"
-                            formatters={{
-                                formatDay: (date) => {
-                                    const stats = dailyStats.get(startOfDay(date).toISOString());
-                                    return <DayContent stats={stats} />;
-                                },
-                            }}
                             classNames={{
                                 months: "w-full",
                                 month: "w-full space-y-4",
@@ -295,36 +237,28 @@ export default function JournalPage() {
                                 row: "flex w-full mt-2",
                                 cell: "p-0 text-center text-sm relative first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 w-full",
                                 day: cn(
-                                  "w-full h-full p-0 font-normal focus:outline-none",
+                                  "w-full h-12 p-0 font-normal focus:outline-none relative",
                                   "aria-selected:opacity-100"
                                 ),
-                                day_today: "bg-accent text-accent-foreground",
-                                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                                day_today: "text-primary",
+                                day_selected: "bg-primary/90 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground focus:bg-primary/90 focus:text-primary-foreground rounded-md",
                                 day_outside: "text-muted-foreground opacity-50",
                                 day_disabled: "text-muted-foreground opacity-50",
                                 day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
                                 day_hidden: "invisible",
                             }}
-                            components={{
+                             components={{
                                 Day: ({ date, displayMonth }) => {
                                     const stats = dailyStats.get(startOfDay(date).toISOString());
+                                    const hasTrades = stats && stats.trades > 0;
                                     const isOutside = displayMonth.getMonth() !== date.getMonth();
-                                    const pnl = stats?.pnl;
-
-                                    const cellClass = cn(
-                                        "w-full h-full border-l border-t",
-                                        {
-                                            "bg-green-950/40 border-green-800/50": pnl !== undefined && pnl > 0,
-                                            "bg-red-950/40 border-red-800/50": pnl !== undefined && pnl < 0,
-                                            "border-border/30": pnl === undefined || pnl === 0,
-                                            "opacity-50": isOutside
-                                        }
-                                    );
 
                                     return (
-                                        <div className={cellClass}>
-                                            <time dateTime={date.toISOString()} className="absolute top-1 right-1 text-xs">{format(date, 'd')}</time>
-                                            <DayContent stats={stats} />
+                                        <div className={cn("relative w-full h-12 flex items-center justify-center")}>
+                                            <span>{format(date, 'd')}</span>
+                                            {hasTrades && !isOutside && (
+                                                <span className="absolute bottom-2 h-1.5 w-1.5 rounded-full bg-current" />
+                                            )}
                                         </div>
                                     );
                                 },
