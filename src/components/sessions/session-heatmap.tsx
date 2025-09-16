@@ -44,26 +44,37 @@ export function SessionHeatmap() {
         <Card>
             <CardHeader>
                 <CardTitle>Weekly Profitability Heatmap</CardTitle>
-                <CardDescription>Your most profitable times of the week (IST).</CardDescription>
+                <CardDescription>Your most profitable times of the week (UTC).</CardDescription>
             </CardHeader>
             <CardContent>
                 <TooltipProvider>
-                    <div className="grid grid-cols-[auto_1fr] gap-2">
+                    <div className="flex gap-4">
+                        {/* Day Labels */}
                         <div className="grid grid-rows-7 gap-1 text-xs text-muted-foreground mt-8">
-                            {days.map(day => <div key={day} className="h-8 flex items-center">{day}</div>)}
+                            {days.map(day => (
+                                <div key={day} className="h-8 flex items-center justify-end">{day}</div>
+                            ))}
                         </div>
-                        <div className="overflow-x-auto">
-                            <div className="grid grid-rows-[auto_1fr] gap-2">
-                                <div className="grid grid-cols-24 gap-1 text-xs text-muted-foreground">
-                                    {hours.map(hour => <div key={hour} className="w-8 text-center">{String(hour).padStart(2, '0')}</div>)}
-                                 </div>
-                                <div className="grid grid-rows-7 grid-flow-col gap-1">
+
+                        <div className="overflow-x-auto w-full">
+                            <div className="flex flex-col">
+                                {/* Hour Labels */}
+                                <div className="grid grid-cols-24 gap-1">
+                                     {hours.map(hour => (
+                                        <div key={hour} className="w-8 h-8 flex items-center justify-center text-xs text-muted-foreground">
+                                            {String(hour).padStart(2, '0')}
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Heatmap Grid */}
+                                <div className="grid grid-cols-24 gap-1">
                                     {days.map((day, dayIndex) => (
                                         <React.Fragment key={day}>
                                             {hours.map(hour => {
-                                                const data = heatmapData[`${dayIndex}-${hour}`];
+                                                const key = `${dayIndex}-${hour}`;
+                                                const data = heatmapData[key];
                                                 return (
-                                                    <Tooltip key={`${day}-${hour}`}>
+                                                    <Tooltip key={key}>
                                                         <TooltipTrigger asChild>
                                                             <div className={cn("w-8 h-8 rounded-sm cursor-pointer transition-colors", getColorClass(data?.pnl))} />
                                                         </TooltipTrigger>
@@ -92,3 +103,4 @@ export function SessionHeatmap() {
         </Card>
     );
 }
+
