@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart2, BookText, Clock, LayoutDashboard, Database, Target, Save, Trophy } from "lucide-react"
+import { BarChart2, BookText, Clock, LayoutDashboard, Database, Target, Save, Trophy, CandlestickChart } from "lucide-react"
 
 import {
   Sidebar,
@@ -20,7 +20,8 @@ import { ThemeToggle } from "../theme-toggle"
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/journal", label: "Journal", icon: BookText },
+  { href: "/journal-list", label: "Journal", icon: BookText },
+  { href: "/market", label: "Market", icon: CandlestickChart },
   { href: "/analysis", label: "Analysis", icon: BarChart2 },
   { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/records", label: "Records", icon: Trophy },
@@ -33,6 +34,8 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar();
 
+  const isJournalActive = pathname === '/journal' || pathname === '/journal-list';
+
   return (
     <Sidebar variant="floating" collapsible="icon">
       <SidebarHeader>
@@ -43,21 +46,30 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)}
-                icon={<item.icon />}
-                tooltip={item.label}
-                onClick={() => setOpenMobile(false)}
-              >
-                <Link href={item.href}>
-                  {item.label}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {menuItems.map((item) => {
+            let isActive = false;
+            if (item.label === 'Journal') {
+                isActive = isJournalActive;
+            } else {
+                isActive = pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true);
+            }
+            
+            return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    icon={<item.icon />}
+                    tooltip={item.label}
+                    onClick={() => setOpenMobile(false)}
+                  >
+                    <Link href={item.href}>
+                      {item.label}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+            )
+          })}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

@@ -87,8 +87,43 @@ function PlannerMasterDataForm({ year, yearData, onMasterDataChange, onSave }: {
       setIsGenerating(true);
       setAiSuggestions(null);
       try {
+        const numericYear = 2000 + parseInt(year.substring(2));
+        const monthIndex = months.indexOf(selectedMonthForAI);
+
+        // Find the opening balance for the selected month
+        let monthOpeningBalances = { ...yearData.openingBalance };
+        if (monthIndex > 0) {
+            // Need to recalculate up to the previous month to get the correct opening balance
+             for (let i = 0; i < monthIndex; i++) {
+                const prevMonth = months[i];
+                accountTypes.forEach(accType => {
+                    const prevMonthData = yearData.monthly[prevMonth];
+                    const dailyProfitPerc = prevMonthData.profitPercentage[accType] || 0;
+                    const totalMonthlyWithdrawal = prevMonthData.withdrawals[accType] || 0;
+                    
+                    const daysInMonth = getDaysInMonth(new Date(numericYear, i));
+                    const tradingDays = Array.from({ length: daysInMonth }, (_, dayIdx) => new Date(numericYear, i, dayIdx + 1))
+                                              .filter(date => date.getDay() > 0 && date.getDay() < 6).length;
+
+                    const dailyWithdrawal = tradingDays > 0 ? totalMonthlyWithdrawal / tradingDays : 0;
+                    
+                    let currentBalance = monthOpeningBalances[accType];
+                     if (tradingDays > 0) {
+                        for (let d = 1; d <= daysInMonth; d++) {
+                            const date = new Date(numericYear, i, d);
+                            if (date.getDay() > 0 && date.getDay() < 6) {
+                               const pnl = (currentBalance * dailyProfitPerc) / 100;
+                               currentBalance += pnl - dailyWithdrawal;
+                            }
+                        }
+                    }
+                    monthOpeningBalances[accType] = currentBalance;
+                });
+            }
+        }
+        
         const result = await getFinancialPlannerInsights({
-          openingBalances: yearData.openingBalance,
+          openingBalances: monthOpeningBalances,
           month: selectedMonthForAI,
         });
         setAiSuggestions(result);

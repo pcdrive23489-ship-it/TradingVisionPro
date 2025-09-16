@@ -204,7 +204,7 @@ export default function JournalPage() {
                 <h1 className="text-3xl font-bold">Trading Journal</h1>
                 <p className="text-muted-foreground">Review and learn from your daily performance.</p>
             </div>
-            <Link href="/journal">
+            <Link href="/journal-list">
                 <Button variant="outline">
                     <BookCopy className="mr-2 h-4 w-4" />
                     List View
@@ -319,5 +319,3 @@ export default function JournalPage() {
     </MainLayout>
   )
 }
-
-    
