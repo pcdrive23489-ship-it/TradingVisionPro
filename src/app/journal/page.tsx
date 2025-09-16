@@ -127,7 +127,7 @@ function DayCell({ stats, date }: { stats: DailyStats, date: Date }) {
             )}
           >
             <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
-            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-1">
+            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-1 pt-2">
                 <p className={cn("text-lg font-bold", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
                 <div className="text-xs text-muted-foreground space-y-0.5">
                     <p>{stats.trades} trade{stats.trades !== 1 && 's'}</p>
@@ -305,10 +305,10 @@ export default function JournalPage() {
                             }}
                             classNames={{
                                 months: "w-full",
-                                month: "w-full",
+                                month: "w-full space-y-4",
                                 caption_label: "text-lg font-bold",
-                                head_cell: "w-full text-muted-foreground uppercase text-xs pb-2",
-                                table: "w-full border-separate border-spacing-1.5",
+                                head_cell: "w-full text-muted-foreground uppercase text-xs pb-2 font-normal",
+                                table: "w-full border-separate border-spacing-1",
                                 cell: "p-0",
                                 day: "w-full h-full p-0 rounded-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
                                 day_selected: "", // We handle selection via state
