@@ -25,17 +25,21 @@ export function SessionPerformanceChart() {
   const { trades } = useTrades();
 
   const chartData = React.useMemo(() => {
-     const sessionData: Record<string, {pnl: number}> = {
+     const sessionData = {
       "Asian": { pnl: 0 },
       "London": { pnl: 0 },
       "New York": { pnl: 0 },
     };
 
-    trades.forEach(trade => {
-      if (trade.session && sessionData[trade.session]) {
-        sessionData[trade.session].pnl += (trade.profit_usd || 0);
-      }
-    });
+    for (const trade of trades) {
+        if (trade.session === 'Asian') {
+            sessionData.Asian.pnl += trade.profit_usd || 0;
+        } else if (trade.session === 'London') {
+            sessionData.London.pnl += trade.profit_usd || 0;
+        } else if (trade.session === 'New York') {
+            sessionData['New York'].pnl += trade.profit_usd || 0;
+        }
+    }
 
     return Object.entries(sessionData).map(([session, data]) => ({
       session,
