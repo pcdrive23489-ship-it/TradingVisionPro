@@ -293,3 +293,5 @@ export default function MasterDataPage() {
     </MainLayout>
   )
 }
+
+    

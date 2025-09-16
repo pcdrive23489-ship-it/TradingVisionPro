@@ -365,3 +365,5 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
     </Dialog>
   );
 }
+
+    

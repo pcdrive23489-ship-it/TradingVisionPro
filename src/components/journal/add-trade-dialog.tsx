@@ -374,3 +374,5 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
     </Dialog>
   );
 }
+
+    

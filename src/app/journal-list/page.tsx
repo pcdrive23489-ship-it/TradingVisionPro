@@ -130,7 +130,7 @@ export default function JournalListPage() {
     return [...trades].sort((a, b) => {
       const dateA = new Date(a.closing_time_utc).getTime();
       const dateB = new Date(b.closing_time_utc).getTime();
-      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+      return sortOrder === "asc" ? dateA - dateB : dateB - a;
     });
   }, [trades, sortOrder]);
 
