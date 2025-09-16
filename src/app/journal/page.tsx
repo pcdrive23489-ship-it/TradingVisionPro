@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { format, startOfDay, isSameDay, startOfWeek, getWeek, getMonth, getYear } from "date-fns"
+import { format, startOfDay, isSameDay, startOfWeek, getWeek, getMonth, getYear, startOfMonth } from "date-fns"
 import { BarChart, BookCopy, CalendarDays, ChevronsRight, Loader2, MinusCircle, PlusCircle } from "lucide-react"
 
 import MainLayout from "@/components/layout/main-layout"
@@ -111,54 +111,48 @@ const formatPnl = (pnl: number) => {
 
 
 // --- Sub-components ---
-function DayCell({ stats, date }: { stats: DailyStats, date: Date }) {
-  const pnlClass = stats.pnl > 0 ? "bg-green-100 dark:bg-green-900/30" : stats.pnl < 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-muted/40";
-  const borderClass = stats.pnl > 0 ? "border-green-300 dark:border-green-700/50" : stats.pnl < 0 ? "border-red-300 dark:border-red-700/50" : "border-transparent";
-  const pnlTextClass = stats.pnl > 0 ? "text-green-600 dark:text-green-400" : stats.pnl < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
+function DayContent({ stats }: { stats?: DailyStats }) {
+    if (!stats || stats.trades === 0) {
+        return <div className="h-24 w-full" />;
+    }
 
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className={cn(
-              "relative flex h-full w-full flex-col p-2 rounded-lg transition-colors border",
-              pnlClass,
-              borderClass
-            )}
-          >
-            <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
-            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-1 pt-2">
-                <p className={cn("text-lg font-bold", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
-                <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p>{stats.trades} trade{stats.trades !== 1 && 's'}</p>
-                    <p>{stats.avgRR.toFixed(2)}R, {stats.winRate.toFixed(0)}%</p>
-                </div>
-            </div>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="bg-background border-border shadow-lg p-4 rounded-lg w-48">
-            <div className="flex justify-between items-center mb-2">
-                <p className="font-bold">{format(date, 'MMM d, yyyy')}</p>
-                <p className={cn("font-bold text-lg", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
-            </div>
-            <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                    <span className="text-muted-foreground">Trades:</span>
-                    <span>{stats.trades}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-muted-foreground">Win Rate:</span>
-                    <span>{stats.winRate.toFixed(0)}%</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg R:R:</span>
-                    <span>{stats.avgRR.toFixed(1)}</span>
-                </div>
-            </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+    const pnlClass = stats.pnl > 0 ? "text-green-600 dark:text-green-400" : stats.pnl < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
+
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex h-24 w-full flex-col justify-center items-center text-center space-y-1 p-1">
+                        <p className={cn("text-base font-bold", pnlClass)}>{formatPnl(stats.pnl)}</p>
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p>{stats.trades} trade{stats.trades !== 1 && 's'}</p>
+                            <p>{stats.avgRR.toFixed(2)}R, {stats.winRate.toFixed(0)}%</p>
+                        </div>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-card border-border shadow-lg p-4 rounded-lg w-48">
+                    <div className="flex justify-between items-center mb-2">
+                        <p className="font-bold">{format(stats.date, 'MMM d, yyyy')}</p>
+                        <p className={cn("font-bold text-lg", pnlClass)}>{formatPnl(stats.pnl)}</p>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Trades:</span>
+                            <span>{stats.trades}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Win Rate:</span>
+                            <span>{stats.winRate.toFixed(0)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Avg R:R:</span>
+                            <span>{stats.avgRR.toFixed(1)}</span>
+                        </div>
+                    </div>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
 }
 
 function MetricWidget({ title, value, unit, description }: { title: string, value: string, unit?: string, description: string }) {
@@ -203,18 +197,10 @@ function TradeListItem({ trade }: { trade: Trade }) {
   )
 }
 
-function EmptyDayCell({ date }: { date: Date }) {
-    return (
-        <div className="relative h-full w-full p-2 rounded-lg border border-dashed border-border/50">
-            <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
-        </div>
-    );
-}
-
 export default function JournalPage() {
   const { trades, loading } = useTrades()
   const [selectedDay, setSelectedDay] = React.useState<Date | undefined>(new Date())
-  const [month, setMonth] = React.useState(new Date())
+  const [month, setMonth] = React.useState(startOfMonth(new Date()))
 
   const dailyStats = React.useMemo(() => calculateDailyStats(trades), [trades])
   const overallMetrics = React.useMemo(() => calculateOverallMetrics(trades), [trades])
@@ -293,25 +279,55 @@ export default function JournalPage() {
                             selected={selectedDay}
                             onSelect={setSelectedDay}
                             className="p-0"
-                            components={{
-                                Day: ({ date }) => {
+                            formatters={{
+                                formatDay: (date) => {
                                     const stats = dailyStats.get(startOfDay(date).toISOString());
-                                    return (
-                                        <div className="h-28 sm:h-32 w-full">
-                                            {stats ? <DayCell stats={stats} date={date}/> : <EmptyDayCell date={date} />}
-                                        </div>
-                                    )
+                                    return <DayContent stats={stats} />;
                                 },
                             }}
                             classNames={{
                                 months: "w-full",
                                 month: "w-full space-y-4",
                                 caption_label: "text-lg font-bold",
-                                head_cell: "w-full text-muted-foreground uppercase text-xs pb-2 font-normal",
-                                table: "w-full border-separate border-spacing-1",
-                                cell: "p-0",
-                                day: "w-full h-full p-0 rounded-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
-                                day_selected: "", // We handle selection via state
+                                head_cell: "w-full text-muted-foreground uppercase text-xs font-normal text-center",
+                                table: "w-full border-collapse",
+                                head_row: "flex border-b",
+                                row: "flex w-full mt-2",
+                                cell: "p-0 text-center text-sm relative first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 w-full",
+                                day: cn(
+                                  "w-full h-full p-0 font-normal focus:outline-none",
+                                  "aria-selected:opacity-100"
+                                ),
+                                day_today: "bg-accent text-accent-foreground",
+                                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                                day_outside: "text-muted-foreground opacity-50",
+                                day_disabled: "text-muted-foreground opacity-50",
+                                day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                                day_hidden: "invisible",
+                            }}
+                            components={{
+                                Day: ({ date, displayMonth }) => {
+                                    const stats = dailyStats.get(startOfDay(date).toISOString());
+                                    const isOutside = displayMonth.getMonth() !== date.getMonth();
+                                    const pnl = stats?.pnl;
+
+                                    const cellClass = cn(
+                                        "w-full h-full border-l border-t",
+                                        {
+                                            "bg-green-950/40 border-green-800/50": pnl !== undefined && pnl > 0,
+                                            "bg-red-950/40 border-red-800/50": pnl !== undefined && pnl < 0,
+                                            "border-border/30": pnl === undefined || pnl === 0,
+                                            "opacity-50": isOutside
+                                        }
+                                    );
+
+                                    return (
+                                        <div className={cellClass}>
+                                            <time dateTime={date.toISOString()} className="absolute top-1 right-1 text-xs">{format(date, 'd')}</time>
+                                            <DayContent stats={stats} />
+                                        </div>
+                                    );
+                                },
                             }}
                         />
                     </CardContent>
@@ -387,3 +403,5 @@ export default function JournalPage() {
     </MainLayout>
   )
 }
+
+    
