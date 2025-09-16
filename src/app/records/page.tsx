@@ -64,8 +64,8 @@ export default function RecordsPage() {
             return acc;
         }, {} as Record<string, number>);
         
-        const bestDayEntry = Object.entries(dailyPnl).reduce((max, entry) => entry[1] > max[1] ? entry : max);
-        const worstDayEntry = Object.entries(dailyPnl).reduce((min, entry) => entry[1] < min[1] ? entry : min);
+        const bestDayEntry = Object.entries(dailyPnl).reduce((max, entry) => entry[1] > max[1] ? entry : max, ["", -Infinity]);
+        const worstDayEntry = Object.entries(dailyPnl).reduce((min, entry) => entry[1] < min[1] ? entry : min, ["", Infinity]);
 
         // Weekly P/L
         const weeklyPnl = trades.reduce((acc, t) => {
@@ -74,8 +74,9 @@ export default function RecordsPage() {
             return acc;
         }, {} as Record<string, number>);
 
-        const bestWeekEntry = Object.entries(weeklyPnl).reduce((max, entry) => entry[1] > max[1] ? entry : max);
-        const worstWeekEntry = Object.entries(weeklyPnl).reduce((min, entry) => entry[1] < min[1] ? entry : min);
+        const bestWeekEntry = Object.entries(weeklyPnl).reduce((max, entry) => entry[1] > max[1] ? entry : max, ["", -Infinity]);
+        const worstWeekEntry = Object.entries(weeklyPnl).reduce((min, entry) => entry[1] < min[1] ? entry : min, ["", Infinity]);
+
 
         return {
             highestWin,
@@ -107,18 +108,18 @@ export default function RecordsPage() {
                         <div>
                              <h2 className="text-2xl font-semibold mb-4">Single Trades</h2>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <StatCard 
+                                {records.highestWin && <StatCard 
                                     title="Highest Win"
-                                    value={records.highestWin?.profit_usd || 0}
+                                    value={records.highestWin.profit_usd || 0}
                                     valueClassName="text-accent"
                                     trade={records.highestWin}
-                                />
-                                 <StatCard 
+                                />}
+                                {records.highestLoss && <StatCard 
                                     title="Highest Loss"
-                                    value={records.highestLoss?.profit_usd || 0}
+                                    value={records.highestLoss.profit_usd || 0}
                                     valueClassName="text-destructive"
                                     trade={records.highestLoss}
-                                />
+                                />}
                              </div>
                         </div>
 

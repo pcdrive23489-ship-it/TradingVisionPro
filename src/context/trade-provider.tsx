@@ -7,7 +7,7 @@ import type { Trade } from "@/lib/types";
 interface TradesContextType {
   trades: Trade[];
   setTrades: (trades: Trade[]) => void;
-  addTrade: (trade: Omit<Trade, 'ticket'>) => void;
+  addTrade: (trade: Trade) => void;
   updateTrade: (trade: Trade) => void;
   deleteTrade: (ticket: number) => void;
   deleteAllTrades: () => Promise<void>;
@@ -37,7 +37,7 @@ export function TradesProvider({ children }: { children: React.ReactNode }) {
   const setTrades = (newTrades: Trade[]) => {
     setLoading(true);
     try {
-      const sortedTrades = newTrades.sort((a,b) => new Date(b.closing_time_utc).getTime() - new Date(a.closing_time_utc).getTime());
+      const sortedTrades = newTrades.sort((a,b) => new Date(a.closing_time_utc).getTime() - new Date(b.closing_time_utc).getTime());
       localStorage.setItem("trades", JSON.stringify(sortedTrades));
       setTradesState(sortedTrades);
     } catch (error) {
@@ -47,10 +47,8 @@ export function TradesProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addTrade = (tradeData: Omit<Trade, 'ticket'>) => {
-    const newTicket = new Date().getTime(); // Simple unique ID
-    const newTrade = { ...tradeData, ticket: newTicket } as Trade;
-    const updatedTrades = [...trades, newTrade];
+  const addTrade = (tradeData: Trade) => {
+    const updatedTrades = [...trades, tradeData];
     setTrades(updatedTrades);
   };
   

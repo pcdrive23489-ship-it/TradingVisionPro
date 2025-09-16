@@ -44,6 +44,7 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
             const monthData = newData[year].monthly[month];
             
             accountTypes.forEach(accType => {
+                // Here is the fix: use the running balance from the PREVIOUS month
                 let monthOpeningBalance = runningBalances[accType] || 0;
                 
                 const dailyProfitPerc = monthData.profitPercentage[accType] || 0;
@@ -55,19 +56,19 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
 
                 const dailyWithdrawal = tradingDays > 0 ? totalMonthlyWithdrawal / tradingDays : 0;
 
-                let monthClosingBalance = monthOpeningBalance;
+                let currentBalance = monthOpeningBalance;
                 if (tradingDays > 0) {
                     for (let d = 1; d <= daysInMonth; d++) {
                         const date = new Date(numericYear, monthIndex, d);
                         if (date.getDay() > 0 && date.getDay() < 6) { // Is it a weekday?
-                           const pnl = (monthClosingBalance * dailyProfitPerc) / 100;
-                           monthClosingBalance += pnl - dailyWithdrawal;
+                           const pnl = (currentBalance * dailyProfitPerc) / 100;
+                           currentBalance += pnl - dailyWithdrawal;
                         }
                     }
                 }
                 
                 // Update the running balance for the current account type for the next month
-                runningBalances[accType] = monthClosingBalance;
+                runningBalances[accType] = currentBalance;
             });
         }
         
@@ -76,5 +77,3 @@ export const calculatePlannerData = (data: PlannerMasterDataState): PlannerMaste
     }
     return newData;
 }
-
-    

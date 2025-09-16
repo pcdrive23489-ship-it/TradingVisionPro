@@ -46,10 +46,10 @@ const tradeSchema = z.object({
   opening_price: z.coerce.number().positive("Entry price must be positive."),
   closing_price: z.coerce.number().positive("Exit price must be positive."),
   lots: z.coerce.number().positive("Lot size must be positive."),
-  stop_loss: z.coerce.number().min(0, "Stop loss must be a positive number."),
-  take_profit: z.coerce.number().min(0, "Take profit must be a positive number."),
-  commission_usd: z.coerce.number().min(0, "Commission cannot be negative.").optional().default(0),
-  swap_usd: z.coerce.number().min(0, "Swap cannot be negative.").optional().default(0),
+  stop_loss: z.coerce.number().min(0, "Stop loss must be a non-negative number."),
+  take_profit: z.coerce.number().min(0, "Take profit must be a non-negative number."),
+  commission_usd: z.coerce.number().min(0, "Commission cannot be negative.").default(0),
+  swap_usd: z.coerce.number().min(0, "Swap cannot be negative.").default(0),
   notes: z.string().optional(),
   mistakes: z.array(z.string()).optional(),
   chartUrl: z.any().optional(),
@@ -57,13 +57,11 @@ const tradeSchema = z.object({
 
 type TradeFormValues = z.infer<typeof tradeSchema>;
 
-// Function to determine session based on time
 const getSession = (date: Date): Session => {
     const hour = date.getUTCHours();
     if (hour >= 0 && hour < 8) return "Asian"; // 00:00 - 08:00 UTC
     if (hour >= 7 && hour < 16) return "London"; // 07:00 - 16:00 UTC
     if (hour >= 12 && hour < 21) return "New York"; // 12:00 - 21:00 UTC
-    // Default fallback
     return "London";
 };
 
@@ -108,7 +106,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setChartPreview(reader.result as string);
-        form.setValue("chartUrl", reader.result as string); // Save as data URL
+        form.setValue("chartUrl", reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -117,27 +115,25 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
   const onSubmit = (data: TradeFormValues) => {
     const now = new Date();
     const isBuy = data.type === 'buy';
-    const contractSize = 100000; // Standard lot size
+    const contractSize = 100000;
 
-    // Calculate Pips
     const pipValue = data.symbol.toLowerCase().includes('jpy') ? 0.01 : 0.0001;
     const pips = (isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price) / pipValue;
     
-    // Calculate P/L in USD - CORRECTED FORMULA
     const priceDifference = isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price;
     const profit_usd = (priceDifference * contractSize * data.lots) - (data.commission_usd || 0) - (data.swap_usd || 0);
 
-    // Calculate Risk/Reward
-    const potentialRewardPips = Math.abs(data.take_profit - data.opening_price) / pipValue;
-    const potentialRiskPips = Math.abs(data.opening_price - data.stop_loss) / pipValue;
+    const potentialRewardPips = data.take_profit > 0 ? Math.abs(data.take_profit - data.opening_price) / pipValue : 0;
+    const potentialRiskPips = data.stop_loss > 0 ? Math.abs(data.opening_price - data.stop_loss) / pipValue : 0;
     const risk_reward_ratio = potentialRiskPips > 0 ? potentialRewardPips / potentialRiskPips : 0;
 
     const newTrade = {
       ...data,
+      ticket: new Date().getTime(),
       opening_time_utc: now.toISOString(),
       closing_time_utc: now.toISOString(),
       original_position_size: data.lots,
-      equity_usd: 0, // Not available in this form
+      equity_usd: 0,
       margin_level: 'N/A',
       close_reason: 'Manual Close',
       pips,

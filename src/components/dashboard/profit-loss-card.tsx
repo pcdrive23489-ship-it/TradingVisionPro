@@ -20,33 +20,19 @@ export function ProfitLossCard() {
   const { trades } = useTrades();
   const [activeTab, setActiveTab] = React.useState('all');
 
-  const generateChartData = React.useCallback((period: 'day' | 'week' | 'month' | 'year' | 'all') => {
-    let sortedTrades = [...trades].sort((a,b) => new Date(a.closing_time_utc).getTime() - new Date(b.closing_time_utc).getTime());
+  const generateChartData = React.useCallback((tradesToProcess: typeof trades) => {
+    let sortedTrades = [...tradesToProcess].sort((a,b) => new Date(a.closing_time_utc).getTime() - new Date(b.closing_time_utc).getTime());
     
-    const pnlByGroup = sortedTrades.reduce((acc, trade) => {
-        const groupKey = startOfDay(new Date(trade.closing_time_utc)).toISOString(); // Group by day
-        acc[groupKey] = (acc[groupKey] || 0) + (trade.profit_usd || 0);
-        return acc;
-    }, {} as Record<string, number>);
-
     let cumulativePnl = 0;
-    const chartData = Object.entries(pnlByGroup).sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime()).map(([key, pnl]) => {
-      cumulativePnl += pnl;
-      return { time: key, pnl: cumulativePnl };
+    const chartData = sortedTrades.map(trade => {
+      cumulativePnl += (trade.profit_usd || 0);
+      return { time: new Date(trade.closing_time_utc).getTime(), pnl: cumulativePnl };
     });
 
     const total = sortedTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
     
     return { data: chartData, total };
-  }, [trades]);
-
-  const periods = [
-    { value: "day", label: "Day" },
-    { value: "week", label: "Week" },
-    { value: "month", label: "Month" },
-    { value: "year", label: "Year" },
-    { value: "all", label: "All" },
-  ];
+  }, []);
 
   const { data, total } = React.useMemo(() => {
     const now = new Date();
@@ -62,11 +48,16 @@ export function ProfitLossCard() {
       filteredTrades = trades.filter(t => new Date(t.closing_time_utc) >= startDate);
     }
     
-    const totalPnl = filteredTrades.reduce((sum, t) => sum + (t.profit_usd || 0), 0);
-    const chartResult = generateChartData(activeTab as any);
-
-    return { data: chartResult.data, total: totalPnl };
+    return generateChartData(filteredTrades);
   }, [activeTab, trades, generateChartData]);
+
+  const periods = [
+    { value: "day", label: "Day" },
+    { value: "week", label: "Week" },
+    { value: "month", label: "Month" },
+    { value: "year", label: "Year" },
+    { value: "all", label: "All" },
+  ];
 
   return (
     <Card>
@@ -96,8 +87,13 @@ export function ProfitLossCard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/50" />
-                    <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} hide />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                    <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} tickLine={false} axisLine={false} tickMargin={8} hide />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" labelFormatter={(value, payload) => {
+                      if (payload && payload.length > 0) {
+                        return new Date(payload[0].payload.time).toLocaleDateString();
+                      }
+                      return value;
+                    }} />} />
                     <Area dataKey="pnl" type="natural" fill="url(#fillPnl)" stroke={total >= 0 ? "var(--color-pnl)" : "hsl(var(--destructive))"} stackId="a" />
                   </AreaChart>
                 </ChartContainer>

@@ -12,7 +12,7 @@ import { Loader2, Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
-import type { YearlyData as PlannerYearlyData, PlannerMasterDataState } from "@/lib/planner-calculations"
+import type { PlannerMasterDataState } from "@/lib/planner-calculations"
 import { AreaChart, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, Bar, Legend, ResponsiveContainer } from "recharts"
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
@@ -23,7 +23,7 @@ const accountTypes = ["Forex Trading", "Online", "Indian Market"];
 interface DailyLog {
   date: string;
   opening: number;
-  return: number; // This will be an input from master data
+  return: number;
   pnl: number;
   withdrawals: number;
   closing: number;
@@ -31,7 +31,6 @@ interface DailyLog {
 
 interface MonthlyDataForPlanner {
   log: DailyLog[];
-  // These are targets/inputs from master data, not calculated values
   withdrawalsTarget: number;
   profitPercentageTarget: number;
 }
@@ -39,11 +38,11 @@ interface MonthlyDataForPlanner {
 interface YearlyDataForPlanner {
   openingBalance: number;
   closingBalance: number;
-  totalTrades: number; // This seems static, can be refined
+  totalTrades: number;
   totalWithdrawals: number;
   yearlyNetPL: number;
-  incomeTarget: number; // From master data
-  savingsTarget: number; // From master data
+  incomeTarget: number;
+  savingsTarget: number;
   monthly: { [key: string]: MonthlyDataForPlanner };
 }
 
@@ -73,14 +72,8 @@ function TargetBar({ title, actual, target }: { title: string, actual: number, t
   )
 }
 
-function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: YearlyDataForPlanner, onDataChange: (month: string, dayIndex: number, field: keyof DailyLog, value: any) => void, accountType: string }) {
+function MonthlyPlanner({ yearData, accountType }: { yearData: YearlyDataForPlanner, accountType: string }) {
   const [activeMonth, setActiveMonth] = React.useState(months[0]);
-  
-  const handleInputChange = (month: string, dayIndex: number, field: keyof DailyLog, value: string) => {
-    // This function is now a placeholder as real-time editing is complex.
-    // Changes should be made in the master data page to trigger recalculations.
-    console.log("Changes to daily log should be made via the master data page to trigger recalculations.");
-  };
 
   const monthData = yearData.monthly[activeMonth];
 
@@ -90,23 +83,16 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
     const summary = {
       totalPL: 0,
       totalWithdrawals: 0,
-      winPercentage: 0,
       totalTrades: 0,
       netClosing: 0,
     };
 
-    let wins = 0;
     monthData.log.forEach(day => {
-      if (day.pnl !== 0) {
-        summary.totalTrades += 1;
-        if (day.pnl > 0) wins += 1;
-      }
       summary.totalPL += day.pnl;
       summary.totalWithdrawals += day.withdrawals;
     });
-
-    summary.winPercentage = summary.totalTrades > 0 ? (wins / summary.totalTrades) * 100 : 0;
     
+    summary.totalTrades = monthData.log.length; // Each log entry is a trading day
     const lastDay = monthData.log[monthData.log.length - 1];
     summary.netClosing = lastDay ? lastDay.closing : yearData.openingBalance;
 
@@ -133,7 +119,6 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
                         <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Opening</TableHead>
-                        <TableHead>% Return</TableHead>
                         <TableHead>P/L</TableHead>
                         <TableHead>Withdrawals</TableHead>
                         <TableHead>Closing</TableHead>
@@ -144,24 +129,11 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
                         <TableRow key={i}>
                             <TableCell>{day.date}</TableCell>
                             <TableCell>${day.opening.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                            <TableCell>
-                                <Input 
-                                    type="number" 
-                                    defaultValue={day.return}
-                                    readOnly
-                                    className="w-20"
-                                />
-                            </TableCell>
                             <TableCell className={day.pnl >= 0 ? "text-accent" : "text-destructive"}>
                                 ${day.pnl.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </TableCell>
                             <TableCell>
-                                <Input 
-                                    type="number" 
-                                    defaultValue={day.withdrawals}
-                                    readOnly
-                                    className="w-24"
-                                />
+                                -${day.withdrawals.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </TableCell>
                             <TableCell>${day.closing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                         </TableRow>
@@ -179,20 +151,12 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
-                        <p className="text-sm text-muted-foreground">Total P/L</p>
+                        <p className="text-sm text-muted-foreground">Net P/L</p>
                         <p className={`text-lg font-bold ${monthlySummary.totalPL >= 0 ? "text-accent" : "text-destructive"}`}>${monthlySummary.totalPL.toLocaleString()}</p>
                     </div>
                     <div>
                         <p className="text-sm text-muted-foreground">Withdrawals</p>
                         <p className="text-lg font-bold">${monthlySummary.totalWithdrawals.toLocaleString()}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-muted-foreground">Win %</p>
-                        <p className="text-lg font-bold">{monthlySummary.winPercentage.toFixed(0)}%</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-muted-foreground">Total Trades</p>
-                        <p className="text-lg font-bold">{monthlySummary.totalTrades}</p>
                     </div>
                     </div>
                     <div className="border-t pt-4">
@@ -208,7 +172,7 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground italic">
-                    <p>&quot;Your returns this month are on track. Consider a small increase in risk size for high-probability setups.&quot;</p>
+                    <p>&quot;Your profit targets for {activeMonth} are ambitious. Ensure you're managing risk appropriately on your {accountType} account.&quot;</p>
                 </CardContent>
                 </Card>
             </div>
@@ -219,55 +183,49 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
   )
 }
 
-// --- NEW SELF-CONTAINED CALCULATION ENGINE ---
-const runCalculationsForYear = (yearData: PlannerYearlyData, year: string): Record<string, YearlyDataForPlanner> => {
+// --- SELF-CONTAINED CALCULATION ENGINE ---
+const runCalculationsForYear = (yearMasterData: PlannerMasterDataState[string], year: string): Record<string, YearlyDataForPlanner> => {
     const calculatedData: Record<string, YearlyDataForPlanner> = {};
     const numericYear = 2000 + parseInt(year.substring(2));
 
     accountTypes.forEach(accType => {
-        let lastYearClosing = yearData.openingBalance[accType] || 0;
-        
-        // Find opening balance from previous year if not the first year
-        // This is simplified here. The master data page should handle this propagation.
-        // For this page, we rely on the openingBalance provided in the master data for the year.
-        
         const accYearlyData: YearlyDataForPlanner = {
-            openingBalance: yearData.openingBalance[accType] || 0,
+            openingBalance: yearMasterData.openingBalance[accType] || 0,
             closingBalance: 0,
-            totalTrades: 240, // Static for now
+            totalTrades: 0,
             totalWithdrawals: 0,
             yearlyNetPL: 0,
-            incomeTarget: yearData.incomeTarget,
-            savingsTarget: yearData.savingsTarget,
+            incomeTarget: yearMasterData.incomeTarget,
+            savingsTarget: yearMasterData.savingsTarget,
             monthly: {},
         };
 
         let lastMonthClosing = accYearlyData.openingBalance;
 
         months.forEach((month, monthIndex) => {
-            const masterMonthData = yearData.monthly[month];
+            const masterMonthData = yearMasterData.monthly[month];
             const daysInMonth = getDaysInMonth(new Date(numericYear, monthIndex));
             const log: DailyLog[] = [];
             let lastDayClosing = lastMonthClosing;
 
-            const profitPercentageTarget = masterMonthData.profitPercentage[accType] || 0;
-            const withdrawalsTarget = masterMonthData.withdrawals[accType] || 0;
+            const dailyProfitPercTarget = masterMonthData.profitPercentage[accType] || 0;
+            const totalMonthlyWithdrawal = masterMonthData.withdrawals[accType] || 0;
             
             const tradingDaysInMonth = Array.from({ length: daysInMonth }, (_, i) => new Date(numericYear, monthIndex, i + 1))
                                             .filter(d => d.getDay() > 0 && d.getDay() < 6).length;
             
-            const dailyWithdrawal = tradingDaysInMonth > 0 ? withdrawalsTarget / tradingDaysInMonth : 0;
+            const dailyWithdrawal = tradingDaysInMonth > 0 ? totalMonthlyWithdrawal / tradingDaysInMonth : 0;
             
             for (let i = 1; i <= daysInMonth; i++) {
                 const date = new Date(numericYear, monthIndex, i);
                 if (date.getDay() > 0 && date.getDay() < 6) { // Weekdays only
                     const opening = lastDayClosing;
-                    const pnl = (opening * profitPercentageTarget) / 100;
+                    const pnl = (opening * dailyProfitPercTarget) / 100;
                     const closing = opening + pnl - dailyWithdrawal;
                     log.push({
                         date: format(date, "dd-MMM"),
                         opening,
-                        return: profitPercentageTarget,
+                        return: dailyProfitPercTarget,
                         pnl,
                         withdrawals: dailyWithdrawal,
                         closing,
@@ -278,8 +236,8 @@ const runCalculationsForYear = (yearData: PlannerYearlyData, year: string): Reco
             
             accYearlyData.monthly[month] = {
                 log,
-                profitPercentageTarget,
-                withdrawalsTarget
+                profitPercentageTarget: dailyProfitPercTarget,
+                withdrawalsTarget: totalMonthlyWithdrawal
             };
 
             if (log.length > 0) {
@@ -290,7 +248,8 @@ const runCalculationsForYear = (yearData: PlannerYearlyData, year: string): Reco
         accYearlyData.closingBalance = lastMonthClosing;
         accYearlyData.yearlyNetPL = Object.values(accYearlyData.monthly).reduce((total, m) => total + m.log.reduce((pnlSum, day) => pnlSum + day.pnl, 0), 0);
         accYearlyData.totalWithdrawals = Object.values(accYearlyData.monthly).reduce((total, m) => total + m.log.reduce((wSum, day) => wSum + day.withdrawals, 0), 0);
-        
+        accYearlyData.totalTrades = Object.values(accYearlyData.monthly).reduce((total,m) => total + m.log.length, 0);
+
         calculatedData[accType] = accYearlyData;
     });
 
@@ -304,10 +263,8 @@ export default function PlannerPage() {
   const [activeAccountType, setActiveAccountType] = React.useState(accountTypes[0]);
   const [isLoading, setIsLoading] = React.useState(true);
   
-  // This state holds the calculated data for the active year
   const [activeYearCalculatedData, setActiveYearCalculatedData] = React.useState<Record<string, YearlyDataForPlanner> | null>(null);
 
-  // Load master data from localStorage on initial render
   React.useEffect(() => {
     setIsLoading(true);
     try {
@@ -315,7 +272,7 @@ export default function PlannerPage() {
       if (savedData) {
         setPlannerMasterData(JSON.parse(savedData));
       } else {
-        console.log("No planner master data found. Please create it first via the Master Data page.");
+        // If no data, don't show an error, just wait for user to set it up.
       }
     } catch (error) {
       console.error("Failed to load planner master data:", error);
@@ -324,12 +281,13 @@ export default function PlannerPage() {
     }
   }, []);
 
-  // Re-calculate when master data or active year changes
   React.useEffect(() => {
     if (plannerMasterData && plannerMasterData[activeYear]) {
         const yearMasterData = plannerMasterData[activeYear];
         const calculatedData = runCalculationsForYear(yearMasterData, activeYear);
         setActiveYearCalculatedData(calculatedData);
+    } else {
+        setActiveYearCalculatedData(null);
     }
   }, [plannerMasterData, activeYear]);
 
@@ -351,12 +309,13 @@ export default function PlannerPage() {
     if (!activeYearCalculatedData) {
         return { yearlySummary: summary, visualizationData: { balanceData, pnlData } };
     }
-
-    const firstAccountData = activeYearCalculatedData[accountTypes[0]];
-    if(firstAccountData) {
-      summary.incomeTarget = firstAccountData.incomeTarget;
-      summary.savingsTarget = firstAccountData.savingsTarget;
-      summary.totalTrades = firstAccountData.totalTrades;
+    
+    // Set targets from the first account, assuming they are the same for the year.
+    const firstAccountKey = Object.keys(activeYearCalculatedData)[0];
+    if (firstAccountKey) {
+        const firstAccountData = activeYearCalculatedData[firstAccountKey];
+        summary.incomeTarget = firstAccountData.incomeTarget;
+        summary.savingsTarget = firstAccountData.savingsTarget;
     }
 
     accountTypes.forEach(accType => {
@@ -366,6 +325,7 @@ export default function PlannerPage() {
             summary.totalClosingBalance += data.closingBalance || 0;
             summary.totalYearlyNetPL += data.yearlyNetPL || 0;
             summary.totalWithdrawals += data.totalWithdrawals || 0;
+            summary.totalTrades += data.totalTrades || 0;
         }
     });
 
@@ -375,9 +335,25 @@ export default function PlannerPage() {
       let monthWithdrawals = 0;
 
       accountTypes.forEach(accType => {
-        const monthLogs = activeYearCalculatedData[accType]?.monthly[month]?.log;
-        const closing = (monthLogs && monthLogs.length > 0) ? monthLogs[monthLogs.length - 1].closing : (activeYearCalculatedData[accType]?.monthly[month] ? activeYearCalculatedData[accType]!.openingBalance : 0);
-        monthBalanceEntry[accType] = closing;
+        const monthData = activeYearCalculatedData[accType]?.monthly[month];
+        const monthLogs = monthData?.log;
+        
+        let closingBalanceForMonth = monthData ? activeYearCalculatedData[accType]!.openingBalance : 0;
+        if(monthLogs && monthLogs.length > 0) {
+            closingBalanceForMonth = monthLogs[monthLogs.length - 1].closing;
+        } else if (monthData) {
+            // Find previous month closing
+            const currentMonthIndex = months.indexOf(month);
+            if(currentMonthIndex > 0) {
+                const prevMonth = months[currentMonthIndex - 1];
+                const prevMonthLogs = activeYearCalculatedData[accType]?.monthly[prevMonth]?.log;
+                if(prevMonthLogs && prevMonthLogs.length > 0) {
+                    closingBalanceForMonth = prevMonthLogs[prevMonthLogs.length - 1].closing;
+                }
+            }
+        }
+
+        monthBalanceEntry[accType] = closingBalanceForMonth;
 
         if (monthLogs) {
           monthNetPnl += monthLogs.reduce((sum, day) => sum + day.pnl, 0);
@@ -440,8 +416,7 @@ export default function PlannerPage() {
               {!activeYearCalculatedData ? (
                   <Card>
                       <CardContent className="pt-6 text-center">
-                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-                          <p className="mt-2 text-muted-foreground">Calculating data for {activeYear}...</p>
+                          <p className="text-muted-foreground">No data for {activeYear}. Please set it up in Planner Master Data.</p>
                       </CardContent>
                   </Card>
               ): (
@@ -522,7 +497,6 @@ export default function PlannerPage() {
                               {currentAccountPlannerData ? (
                                   <MonthlyPlanner 
                                       yearData={currentAccountPlannerData} 
-                                      onDataChange={() => {}} // Pass a dummy function
                                       accountType={acc}
                                   />
                               ) : (

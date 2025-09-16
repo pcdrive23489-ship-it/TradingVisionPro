@@ -46,8 +46,8 @@ const tradeSchema = z.object({
   opening_price: z.coerce.number().positive("Opening price must be positive."),
   closing_price: z.coerce.number().positive("Closing price must be positive."),
   lots: z.coerce.number().positive("Lots must be positive."),
-  stop_loss: z.coerce.number().min(0, "Stop loss must be a positive number."),
-  take_profit: z.coerce.number().min(0, "Take profit must be a positive number."),
+  stop_loss: z.coerce.number().min(0, "Stop loss must be a non-negative number."),
+  take_profit: z.coerce.number().min(0, "Take profit must be a non-negative number."),
   commission_usd: z.coerce.number().min(0, "Commission cannot be negative.").optional().default(0),
   swap_usd: z.coerce.number().min(0, "Swap cannot be negative.").optional().default(0),
   notes: z.string().optional(),
@@ -116,22 +116,21 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
 
   const onSubmit = (data: TradeFormValues) => {
     const isBuy = data.type === 'buy';
-    const contractSize = 100000; // Standard lot size
+    const contractSize = 100000;
 
     const pipValue = data.symbol.toLowerCase().includes('jpy') ? 0.01 : 0.0001;
     const pips = (isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price) / pipValue;
     
-    // Calculate P/L in USD - CORRECTED FORMULA
     const priceDifference = isBuy ? data.closing_price - data.opening_price : data.opening_price - data.closing_price;
     const profit_usd = (priceDifference * contractSize * data.lots) - (data.commission_usd || 0) - (data.swap_usd || 0);
 
-    const potentialRewardPips = Math.abs(data.take_profit - data.opening_price) / pipValue;
-    const potentialRiskPips = Math.abs(data.opening_price - data.stop_loss) / pipValue;
+    const potentialRewardPips = data.take_profit > 0 ? Math.abs(data.take_profit - data.opening_price) / pipValue : 0;
+    const potentialRiskPips = data.stop_loss > 0 ? Math.abs(data.opening_price - data.stop_loss) / pipValue : 0;
     const risk_reward_ratio = potentialRiskPips > 0 ? potentialRewardPips / potentialRiskPips : 0;
 
     const updatedTrade: Trade = {
-      ...trade, // Keep original data like ticket, times etc.
-      ...data, // Ovewrite with form data
+      ...trade,
+      ...data,
       pips,
       profit_usd,
       risk_reward_ratio,

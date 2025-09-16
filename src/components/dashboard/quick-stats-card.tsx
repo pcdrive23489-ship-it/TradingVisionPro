@@ -27,25 +27,26 @@ export function QuickStatsCard() {
     }
 
     const totalTrades = trades.length;
-    const winningTrades = trades.filter(t => t.profit_usd > 0);
-    const winRate = (winningTrades.length / totalTrades) * 100;
+    const winningTrades = trades.filter(t => (t.profit_usd || 0) > 0);
+    const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
     
     const tradesWithRR = trades.filter(t => t.risk_reward_ratio);
     const totalRR = tradesWithRR.reduce((sum, t) => sum + (t.risk_reward_ratio || 0), 0);
     const avgRiskReward = tradesWithRR.length > 0 ? totalRR / tradesWithRR.length : 0;
     
     const pnlByPair = trades.reduce((acc, trade) => {
-      acc[trade.symbol] = (acc[trade.symbol] || 0) + trade.profit_usd;
+      acc[trade.symbol] = (acc[trade.symbol] || 0) + (trade.profit_usd || 0);
       return acc;
     }, {} as Record<string, number>);
 
-    const bestPair = Object.entries(pnlByPair).sort((a, b) => b[1] - a[1])[0];
+    const bestPairEntry = Object.entries(pnlByPair).sort((a, b) => b[1] - a[1])[0];
+    const bestPair = bestPairEntry ? { name: bestPairEntry[0], pnl: bestPairEntry[1] } : null;
 
     return [
       { title: "Win Rate", value: `${winRate.toFixed(1)}%`, trend: "", trendDirection: "none" },
       { title: "Total Trades", value: String(totalTrades), trend: "", trendDirection: "none" },
       { title: "Avg. R/R Ratio", value: `${avgRiskReward.toFixed(2)}:1`, trend: "", trendDirection: "none" },
-      { title: "Best Pair", value: bestPair ? bestPair[0] : "N/A", trend: bestPair ? `+$${bestPair[1].toFixed(2)}` : "$0", trendDirection: "up" },
+      { title: "Best Pair", value: bestPair ? bestPair.name : "N/A", trend: bestPair ? `+$${bestPair.pnl.toFixed(2)}` : "$0", trendDirection: "up" },
     ];
   }, [trades]);
 

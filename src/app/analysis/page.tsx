@@ -84,7 +84,7 @@ export default function AnalysisPage() {
                                     <span className="text-sm">{profitRatio === Infinity ? "∞" : profitRatio.toFixed(2)}</span>
                                 </div>
                                 <Progress value={(profitRatio / 3) * 100} className="[&>*]:bg-accent" />
-                                <p className="text-xs text-muted-foreground mt-1">Target: &gt; 1.5</p>
+                                <p className="text-xs text-muted-foreground mt-1">Target: > 1.5</p>
                             </div>
                         </CardContent>
                     </Card>
