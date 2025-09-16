@@ -11,6 +11,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from '@/components/ui/button'
 import { Edit, Trash2 } from 'lucide-react'
@@ -18,9 +29,20 @@ import { Trade } from '@/lib/types'
 import { EditTradeDialog } from '@/components/journal/edit-trade-dialog'
 import { format } from 'date-fns'
 import { useTrades } from '@/context/trade-provider'
+import { useToast } from '@/hooks/use-toast'
 
 function TradeCard({ trade, index }: { trade: Trade, index: number }) {
+  const { deleteTrade } = useTrades();
+  const { toast } = useToast();
   const isProfit = (trade.profit_usd || 0) >= 0;
+
+  const handleDelete = () => {
+    deleteTrade(trade.ticket);
+    toast({
+        title: "Trade Deleted",
+        description: `Trade #${trade.ticket} has been removed from your journal.`
+    })
+  }
 
   return (
     <Card>
@@ -74,7 +96,23 @@ function TradeCard({ trade, index }: { trade: Trade, index: number }) {
               <EditTradeDialog trade={trade}>
                 <Button variant="outline" size="sm"><Edit className="mr-2 h-4 w-4" /> Edit</Button>
               </EditTradeDialog>
-              <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+               <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete this trade from your journal.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             </div>
         </AccordionContent>
       </AccordionItem>
