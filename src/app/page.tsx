@@ -20,7 +20,12 @@ import { Trade } from "@/lib/types";
 
 export default function DashboardPage() {
   const { trades } = useTrades();
-  const recentTrades = trades.slice(-5).reverse();
+
+  const recentTrades = React.useMemo(() => {
+    return [...trades]
+      .sort((a, b) => new Date(b.closing_time_utc).getTime() - new Date(a.closing_time_utc).getTime())
+      .slice(0, 5);
+  }, [trades]);
 
   return (
     <MainLayout>
