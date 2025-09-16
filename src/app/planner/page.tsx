@@ -78,7 +78,7 @@ function MonthlyPlanner({ yearData, onDataChange, accountType }: { yearData: Yea
   
   const handleInputChange = (month: string, dayIndex: number, field: keyof DailyLog, value: string) => {
     // This function is now a placeholder as real-time editing is complex.
-    // Changes should be made in the master data page.
+    // Changes should be made in the master data page to trigger recalculations.
     console.log("Changes to daily log should be made via the master data page to trigger recalculations.");
   };
 
