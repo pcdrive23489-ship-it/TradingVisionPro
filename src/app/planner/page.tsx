@@ -14,6 +14,7 @@ import Link from "next/link"
 import { getDaysInMonth, format } from "date-fns"
 import type { PlannerMasterDataState } from "@/lib/planner-calculations"
 import { AreaChart, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, Bar, Legend, ResponsiveContainer } from "recharts"
+import { cn } from "@/lib/utils"
 
 const fiscalYears = ["FY25", "FY26", "FY27", "FY28", "FY29", "FY30"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -262,6 +263,7 @@ export default function PlannerPage() {
   const [activeYear, setActiveYear] = React.useState(fiscalYears[0]);
   const [activeAccountType, setActiveAccountType] = React.useState(accountTypes[0]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [activeChart, setActiveChart] = React.useState<'balance' | 'pnl'>('balance');
   
   const [activeYearCalculatedData, setActiveYearCalculatedData] = React.useState<Record<string, YearlyDataForPlanner> | null>(null);
 
@@ -451,39 +453,57 @@ export default function PlannerPage() {
                           <CardDescription>Projected growth and cash flow analysis.</CardDescription>
                           </CardHeader>
                           <CardContent className="h-[250px] flex flex-col">
-                          <Tabs defaultValue="balance">
-                              <TabsList className="grid w-full grid-cols-2">
-                                  <TabsTrigger value="balance">Balance Growth</TabsTrigger>
-                                  <TabsTrigger value="pnl">P/L vs Withdrawals</TabsTrigger>
-                              </TabsList>
-                              <TabsContent value="balance" className="flex-1 -mx-4">
-                              <ResponsiveContainer width="100%" height="100%">
-                                  <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                      <CartesianGrid strokeDasharray="3 3" />
-                                      <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-                                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
-                                      <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
-                                      <Legend />
-                                      <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" />
-                                      <Area type="monotone" dataKey="Online" stackId="1" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" />
-                                      <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" />
-                                  </AreaChart>
-                              </ResponsiveContainer>
-                              </TabsContent>
-                              <TabsContent value="pnl" className="flex-1 -mx-4">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                  <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                          <CartesianGrid strokeDasharray="3 3" />
-                                          <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
-                                          <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
-                                          <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
-                                          <Legend />
-                                          <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
-                                          <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
-                                      </BarChart>
-                                  </ResponsiveContainer>
-                              </TabsContent>
-                          </Tabs>
+                            <div className="grid grid-cols-2 p-1 mb-4 rounded-md bg-muted text-muted-foreground">
+                                <Button 
+                                    variant={activeChart === 'balance' ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setActiveChart('balance')}
+                                    className={cn("data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm", activeChart === 'balance' ? 'bg-background text-foreground shadow-sm' : '')}
+                                >
+                                    Balance Growth
+                                </Button>
+                                 <Button 
+                                    variant={activeChart === 'pnl' ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setActiveChart('pnl')}
+                                    className={cn("data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm", activeChart === 'pnl' ? 'bg-background text-foreground shadow-sm' : '')}
+                                >
+                                    P/L vs Withdrawals
+                                </Button>
+                            </div>
+
+                            {activeChart === 'balance' && (
+                                <div className="flex-1 -mx-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={visualizationData.balanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
+                                        <Tooltip formatter={(value: number, name: string) => [`$${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`, name.replace(/([A-Z])/g, ' $1').trim()]}/>
+                                        <Legend />
+                                        <Area type="monotone" dataKey="Forex Trading" stackId="1" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" />
+                                        <Area type="monotone" dataKey="Online" stackId="1" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" />
+                                        <Area type="monotone" dataKey="Indian Market" stackId="1" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                                </div>
+                            )}
+
+                             {activeChart === 'pnl' && (
+                                <div className="flex-1 -mx-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={visualizationData.pnlData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false}/>
+                                            <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value) / 1000}k`}/>
+                                            <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`}/>
+                                            <Legend />
+                                            <Bar dataKey="netPnl" fill="hsl(var(--accent))" name="Net P/L" />
+                                            <Bar dataKey="withdrawals" fill="hsl(var(--primary))" name="Withdrawals" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                             )}
                           </CardContent>
                       </Card>
                       </div>
@@ -516,3 +536,5 @@ export default function PlannerPage() {
     </MainLayout>
   )
 }
+
+    
