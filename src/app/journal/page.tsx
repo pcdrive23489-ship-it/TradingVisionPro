@@ -2,13 +2,14 @@
 "use client"
 
 import * as React from "react"
-import { format, startOfDay, isSameDay } from "date-fns"
+import { format, startOfDay, isSameDay, startOfWeek, getWeek, getMonth, getYear } from "date-fns"
 import { BarChart, BookCopy, CalendarDays, ChevronsRight, Loader2, MinusCircle, PlusCircle } from "lucide-react"
 
 import MainLayout from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { useTrades } from "@/context/trade-provider"
 import type { Trade } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,13 @@ type DailyStats = {
   avgRR: number;
   tradeList: Trade[];
 }
+
+type WeeklyStats = {
+    week: number;
+    pnl: number;
+    days: number;
+}
+
 
 // --- Helper Functions ---
 const calculateDailyStats = (trades: Trade[]): Map<string, DailyStats> => {
@@ -94,50 +102,71 @@ const calculateOverallMetrics = (trades: Trade[]) => {
   return { winRate, profitFactor, expectancy, biggestWin, biggestLoss };
 };
 
+const formatPnl = (pnl: number) => {
+    if (Math.abs(pnl) >= 1000) {
+        return `$${(pnl / 1000).toFixed(2)}K`;
+    }
+    return pnl.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
 
 // --- Sub-components ---
-function DayCell({ stats }: { stats: DailyStats }) {
-  const pnlClass = stats.pnl > 0 ? "bg-accent/10" : stats.pnl < 0 ? "bg-destructive/10" : "bg-muted/20";
-  const borderClass = stats.pnl > 0 ? "border-accent/40" : stats.pnl < 0 ? "border-destructive/40" : "border-transparent";
+function DayCell({ stats, date }: { stats: DailyStats, date: Date }) {
+  const pnlClass = stats.pnl > 0 ? "bg-green-100 dark:bg-green-900/30" : stats.pnl < 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-muted/40";
+  const borderClass = stats.pnl > 0 ? "border-green-300 dark:border-green-700/50" : stats.pnl < 0 ? "border-red-300 dark:border-red-700/50" : "border-transparent";
+  const pnlTextClass = stats.pnl > 0 ? "text-green-600 dark:text-green-400" : stats.pnl < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
 
   return (
-    <div className={cn(
-        "flex h-full w-full flex-col p-2 rounded-lg transition-colors",
-        pnlClass,
-        borderClass
-      )}
-    >
-      <div className="flex-1 space-y-1 text-xs">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Trades</span>
-          <span className="font-bold">{stats.trades}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Win%</span>
-          <span className="font-bold">{stats.winRate.toFixed(0)}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">R:R</span>
-          <span className="font-bold">{stats.avgRR.toFixed(1)}</span>
-        </div>
-      </div>
-      <div className={cn(
-          "mt-1 text-right text-sm font-bold",
-          stats.pnl > 0 ? "text-accent" : stats.pnl < 0 ? "text-destructive" : "text-muted-foreground"
-        )}
-      >
-        {stats.pnl.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
-      </div>
-    </div>
-  )
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn(
+              "relative flex h-full w-full flex-col p-2 rounded-lg transition-colors border",
+              pnlClass,
+              borderClass
+            )}
+          >
+            <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
+            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-1">
+                <p className={cn("text-lg font-bold", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p>{stats.trades} trade{stats.trades !== 1 && 's'}</p>
+                    <p>{stats.avgRR.toFixed(2)}R, {stats.winRate.toFixed(0)}%</p>
+                </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="bg-background border-border shadow-lg p-4 rounded-lg w-48">
+            <div className="flex justify-between items-center mb-2">
+                <p className="font-bold">{format(date, 'MMM d, yyyy')}</p>
+                <p className={cn("font-bold text-lg", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
+            </div>
+            <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Trades:</span>
+                    <span>{stats.trades}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Win Rate:</span>
+                    <span>{stats.winRate.toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg R:R:</span>
+                    <span>{stats.avgRR.toFixed(1)}</span>
+                </div>
+            </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 function MetricWidget({ title, value, unit, description }: { title: string, value: string, unit?: string, description: string }) {
     return (
-        <Card>
+        <Card className="bg-card/50">
             <CardHeader className="pb-2">
                 <CardDescription>{title}</CardDescription>
-                <CardTitle className="text-3xl">
+                <CardTitle className="text-2xl xl:text-3xl">
                     {value}
                     {unit && <span className="text-lg text-muted-foreground ml-1">{unit}</span>}
                 </CardTitle>
@@ -174,10 +203,18 @@ function TradeListItem({ trade }: { trade: Trade }) {
   )
 }
 
+function EmptyDayCell({ date }: { date: Date }) {
+    return (
+        <div className="relative h-full w-full p-2 rounded-lg border border-dashed border-border/50">
+            <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
+        </div>
+    );
+}
 
 export default function JournalPage() {
   const { trades, loading } = useTrades()
   const [selectedDay, setSelectedDay] = React.useState<Date | undefined>(new Date())
+  const [month, setMonth] = React.useState(new Date())
 
   const dailyStats = React.useMemo(() => calculateDailyStats(trades), [trades])
   const overallMetrics = React.useMemo(() => calculateOverallMetrics(trades), [trades])
@@ -185,6 +222,38 @@ export default function JournalPage() {
   const selectedDayStats = selectedDay
     ? dailyStats.get(startOfDay(selectedDay).toISOString())
     : undefined
+
+  const weeklyStats: WeeklyStats[] = React.useMemo(() => {
+    const currentMonth = getMonth(month)
+    const currentYear = getYear(month)
+
+    const weeks: Record<number, { pnl: number, days: Set<string> }> = {}
+    
+    trades
+        .filter(trade => {
+            const tradeDate = new Date(trade.closing_time_utc)
+            return getMonth(tradeDate) === currentMonth && getYear(tradeDate) === currentYear
+        })
+        .forEach(trade => {
+            const tradeDate = new Date(trade.closing_time_utc)
+            const weekNumber = getWeek(tradeDate, { weekStartsOn: 1 })
+
+            if (!weeks[weekNumber]) {
+                weeks[weekNumber] = { pnl: 0, days: new Set() }
+            }
+            weeks[weekNumber].pnl += trade.profit_usd || 0
+            weeks[weekNumber].days.add(startOfDay(tradeDate).toISOString())
+        })
+
+    return Object.entries(weeks)
+        .map(([week, data]) => ({
+            week: Number(week),
+            pnl: data.pnl,
+            days: data.days.size,
+        }))
+        .sort((a, b) => a.week - b.week)
+}, [trades, month]);
+
 
   if (loading) {
     return (
@@ -214,16 +283,12 @@ export default function JournalPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* --- Center Column --- */}
-            <div className="lg:col-span-8 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           <CalendarDays className="h-5 w-5" /> Journal Calendar
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex justify-center">
+            <div className="lg:col-span-9">
+                 <Card>
+                    <CardContent className="p-2 sm:p-4">
                         <Calendar
+                            month={month}
+                            onMonthChange={setMonth}
                             mode="single"
                             selected={selectedDay}
                             onSelect={setSelectedDay}
@@ -232,40 +297,48 @@ export default function JournalPage() {
                                 Day: ({ date }) => {
                                     const stats = dailyStats.get(startOfDay(date).toISOString());
                                     return (
-                                        <div className="h-32 w-full">
-                                            {stats ? <DayCell stats={stats} /> : null}
+                                        <div className="h-28 sm:h-32 w-full">
+                                            {stats ? <DayCell stats={stats} date={date}/> : <EmptyDayCell date={date} />}
                                         </div>
                                     )
                                 },
                             }}
                             classNames={{
-                                head_cell: "w-full",
-                                table: "w-full border-separate border-spacing-2",
+                                months: "w-full",
+                                month: "w-full",
+                                caption_label: "text-lg font-bold",
+                                head_cell: "w-full text-muted-foreground uppercase text-xs pb-2",
+                                table: "w-full border-separate border-spacing-1.5",
                                 cell: "p-0",
-                                day: "w-full h-full p-0",
-                                day_selected: "ring-2 ring-primary rounded-lg",
+                                day: "w-full h-full p-0 rounded-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
+                                day_selected: "", // We handle selection via state
                             }}
                         />
                     </CardContent>
                 </Card>
-                {selectedDayStats && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Trades for {format(selectedDay!, 'PPP')}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <div className="space-y-2">
-                                {selectedDayStats.tradeList.map((trade, idx) => (
-                                    <TradeListItem key={idx} trade={trade} />
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
             </div>
 
-            {/* --- Right Column --- */}
-            <div className="lg:col-span-4 space-y-6">
+            <div className="lg:col-span-3 space-y-6">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Weekly Summary</CardTitle>
+                        <CardDescription>{format(month, 'MMMM yyyy')}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {weeklyStats.map((weekData, index) => (
+                             <div key={weekData.week} className="flex justify-between items-center text-sm">
+                                <div>
+                                    <p className="font-bold">Week {index + 1}</p>
+                                    <p className="text-xs text-muted-foreground">{weekData.days} day{weekData.days !== 1 && 's'}</p>
+                                </div>
+                                <p className={cn("font-semibold", weekData.pnl > 0 ? "text-accent" : weekData.pnl < 0 ? "text-destructive" : "text-muted-foreground")}>
+                                    {weekData.pnl.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                </p>
+                             </div>
+                        ))}
+                         {weeklyStats.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No trades this month.</p>}
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -292,32 +365,25 @@ export default function JournalPage() {
                         />
                     </CardContent>
                 </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Performance Review</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                       {overallMetrics.biggestWin && (
-                         <div>
-                            <h4 className="text-sm font-semibold text-accent">Biggest Win</h4>
-                            <p className="text-lg font-bold">{overallMetrics.biggestWin.profit_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-                            <p className="text-xs text-muted-foreground">{overallMetrics.biggestWin.symbol} on {format(new Date(overallMetrics.biggestWin.closing_time_utc), 'PP')}</p>
-                         </div>
-                       )}
-                       {overallMetrics.biggestLoss && (
-                         <div>
-                            <h4 className="text-sm font-semibold text-destructive">Biggest Loss</h4>
-                            <p className="text-lg font-bold">{overallMetrics.biggestLoss.profit_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-                            <p className="text-xs text-muted-foreground">{overallMetrics.biggestLoss.symbol} on {format(new Date(overallMetrics.biggestLoss.closing_time_utc), 'PP')}</p>
-                         </div>
-                       )}
-                    </CardContent>
-                </Card>
             </div>
         </div>
+
+         {selectedDayStats && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Trades for {format(selectedDay!, 'PPP')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     <div className="space-y-2">
+                        {selectedDayStats.tradeList.map((trade, idx) => (
+                            <TradeListItem key={idx} trade={trade} />
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
       </div>
     </MainLayout>
   )
 }
-
-    
