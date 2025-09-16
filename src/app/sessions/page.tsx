@@ -61,7 +61,11 @@ const SessionTradeList = ({ session, selectedDate }: { session: Session, selecte
 }
 
 export default function SessionsPage() {
-    const [date, setDate] = React.useState<Date | undefined>(new Date());
+    const [date, setDate] = React.useState<Date | undefined>(undefined);
+
+    React.useEffect(() => {
+        setDate(new Date());
+    }, []);
 
     return (
         <MainLayout>
