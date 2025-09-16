@@ -33,7 +33,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       <SidebarProvider>
         <AppSidebar />
         <div className="pb-24">
-          <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur-sm h-16">
+           <header className="sticky top-0 z-40 flex h-16 items-center justify-between p-4 bg-transparent">
             <h1 className="text-lg font-semibold">{headerTitle}</h1>
             <div className="flex items-center gap-2">
               <AddTradeDialog>
@@ -44,7 +44,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
               </AddTradeDialog>
             </div>
           </header>
-          <main className="p-4 pt-20">{children}</main>
+          <main className="p-4 pt-0">{children}</main>
           <BottomNav />
         </div>
       </SidebarProvider>
@@ -56,7 +56,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen">
         <AppSidebar />
         <SidebarInset className="flex-1">
-            <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b p-4 bg-background/95 backdrop-blur-sm h-16">
+             <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-white/30 bg-white/10 p-4 backdrop-blur-md">
               <div className="flex items-center gap-4">
                 <SidebarTrigger className="md:hidden" />
                 <h1 className="text-xl font-semibold tracking-tight">{headerTitle}</h1>

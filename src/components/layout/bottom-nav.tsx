@@ -20,7 +20,7 @@ export function BottomNav() {
   const { setOpenMobile } = useSidebar();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden">
+    <div className="fixed bottom-4 left-1/2 z-50 w-[95%] -translate-x-1/2 rounded-2xl border border-white/30 bg-white/20 shadow-xl backdrop-blur-md dark:border-gray-700 dark:bg-black/20">
       <div className="grid h-16 grid-cols-5 items-stretch">
         {menuItems.map((item) => {
           const isActive = pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)
