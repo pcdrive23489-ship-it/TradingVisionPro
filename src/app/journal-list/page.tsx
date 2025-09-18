@@ -136,7 +136,7 @@ export default function JournalListPage() {
 
   const filteredTrades = React.useMemo(() => {
     return sortedTrades.filter(trade =>
-      trade.symbol && trade.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      trade.symbol.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [sortedTrades, searchTerm]);
 
@@ -213,3 +213,4 @@ export default function JournalListPage() {
   );
 }
 
+    
