@@ -56,7 +56,7 @@ function TradeCard({ trade, onDelete }: { trade: Trade, onDelete: (ticket: numbe
             <p className={`font-semibold text-lg ${isProfit ? "text-accent" : "text-destructive"}`}>
               {isProfit ? '+' : ''}{(trade.profit_usd || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
             </p>
-            <p className="text-xs text-muted-foreground">{new Date(trade.closing_time_utc).toLocaleString('en-GB')}</p>
+            <p className="text-xs text-muted-foreground">{format(new Date(trade.closing_time_utc), 'Pp')}</p>
           </div>
         </div>
       </AccordionTrigger>
@@ -130,13 +130,13 @@ export default function JournalListPage() {
     return [...trades].sort((a, b) => {
       const dateA = new Date(a.closing_time_utc).getTime();
       const dateB = new Date(b.closing_time_utc).getTime();
-      return sortOrder === "asc" ? dateA - dateB : dateB - a;
+      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
     });
   }, [trades, sortOrder]);
 
   const filteredTrades = React.useMemo(() => {
     return sortedTrades.filter(trade =>
-      trade.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      trade.symbol && trade.symbol.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [sortedTrades, searchTerm]);
 
@@ -212,5 +212,7 @@ export default function JournalListPage() {
     </MainLayout>
   );
 }
+<<<<<<< HEAD
+=======
 
-    
+>>>>>>> 18eb5ff (Try fixing this error: `Runtime Error: Error: Cannot read properties of)
