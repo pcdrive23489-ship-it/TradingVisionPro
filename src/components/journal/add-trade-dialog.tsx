@@ -112,7 +112,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const onSubmit = (data: TradeFormValues) => {
+  const onSubmit = async (data: TradeFormValues) => {
     const now = new Date();
     const isBuy = data.type === 'buy';
     const contractSize = 100000;
@@ -143,7 +143,7 @@ export function AddTradeDialog({ children }: { children: React.ReactNode }) {
       mistake_1: data.mistakes ? data.mistakes[0] : undefined,
     };
     
-    addTrade(newTrade);
+    await addTrade(newTrade);
     
     toast({
       title: "Trade Logged",
