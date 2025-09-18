@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart2, BookText, Clock, LayoutDashboard, Database, Target, Save, Trophy } from "lucide-react"
+import { BarChart2, BookText, Clock, LayoutDashboard, Database, Target, Save, Trophy, CandlestickChart } from "lucide-react"
 
 import {
   Sidebar,
@@ -20,7 +20,8 @@ import { ThemeToggle } from "../theme-toggle"
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/journal-list", label: "Journal", icon: BookText },
+  { href: "/journal", label: "Journal", icon: BookText },
+  { href: "/market", label: "Market", icon: CandlestickChart },
   { href: "/analysis", label: "Analysis", icon: BarChart2 },
   { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/records", label: "Records", icon: Trophy },
