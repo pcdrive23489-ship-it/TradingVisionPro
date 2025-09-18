@@ -114,7 +114,7 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
     }
   };
 
-  const onSubmit = (data: TradeFormValues) => {
+  const onSubmit = async (data: TradeFormValues) => {
     const isBuy = data.type === 'buy';
     const contractSize = 100000;
 
@@ -138,7 +138,7 @@ export function EditTradeDialog({ children, trade }: { children: React.ReactNode
       mistake_1: data.mistakes ? data.mistakes[0] : undefined,
     };
     
-    updateTrade(updatedTrade);
+    await updateTrade(updatedTrade);
     
     toast({
       title: "Trade Updated",
