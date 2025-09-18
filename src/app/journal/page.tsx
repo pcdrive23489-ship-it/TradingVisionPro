@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from "react"
-import { format, startOfDay, isSameDay, startOfWeek, getWeek, getMonth, getYear, startOfMonth } from "date-fns"
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns"
 import { BarChart, BookCopy, CalendarDays, ChevronsRight, Loader2, MinusCircle, PlusCircle } from "lucide-react"
 
 import MainLayout from "@/components/layout/main-layout"
@@ -36,7 +37,7 @@ const calculateDailyStats = (trades: Trade[]): Map<string, DailyStats> => {
   const dailyData = new Map<string, DailyStats>()
 
   trades.forEach(trade => {
-    const day = startOfDay(new Date(trade.closing_time_utc)).toISOString()
+    const day = format(new Date(trade.closing_time_utc), 'yyyy-MM-dd')
 
     if (!dailyData.has(day)) {
       dailyData.set(day, {
@@ -102,41 +103,38 @@ const calculateOverallMetrics = (trades: Trade[]) => {
 
 const formatPnl = (pnl: number) => {
   if (Math.abs(pnl) >= 1000) {
-    return `$${(pnl / 1000).toFixed(2)}K`
+    return `$${(pnl / 1000).toFixed(1)}K`
   }
   return pnl.toLocaleString("en-US", { style: "currency", currency: "USD" })
 }
 
 // --- Sub-components ---
 function DayCell({ stats, date }: { stats: DailyStats, date: Date }) {
-  const pnlClass = stats.pnl > 0 ? "bg-green-100 dark:bg-green-900/30" : stats.pnl < 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-muted/40";
-  const borderClass = stats.pnl > 0 ? "border-green-300 dark:border-green-700/50" : stats.pnl < 0 ? "border-red-300 dark:border-red-700/50" : "border-transparent";
-  const pnlTextClass = stats.pnl > 0 ? "text-green-600 dark:text-green-400" : stats.pnl < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
-
+  const pnlClass = stats.pnl >= 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800/50" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/50";
+  
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className={cn(
-              "relative flex h-full w-full flex-col p-2 rounded-lg transition-colors border",
-              pnlClass,
-              borderClass
+              "relative flex flex-col justify-between w-full h-28 sm:h-32 p-2 rounded-lg border transition-colors",
+              pnlClass
             )}
           >
-            <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
-            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-1 pt-2">
-                <p className={cn("text-lg font-bold", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
-                <div className="text-xs text-muted-foreground space-y-0.5">
+            <div className="text-xs font-semibold text-foreground/70">{format(date, 'd')}</div>
+            <div className="flex flex-col items-center text-center -mt-2">
+                <p className="text-xl font-bold">{formatPnl(stats.pnl)}</p>
+                <div className="text-xs space-y-0.5">
                     <p>{stats.trades} trade{stats.trades !== 1 && 's'}</p>
-                    <p>{stats.avgRR.toFixed(2)}R, {stats.winRate.toFixed(0)}%</p>
                 </div>
             </div>
+             <div />
           </div>
         </TooltipTrigger>
         <TooltipContent className="bg-background border-border shadow-lg p-4 rounded-lg w-48">
             <div className="flex justify-between items-center mb-2">
                 <p className="font-bold">{format(date, 'MMM d, yyyy')}</p>
-                <p className={cn("font-bold text-lg", pnlTextClass)}>{formatPnl(stats.pnl)}</p>
+                <p className={cn("font-bold text-lg", stats.pnl >= 0 ? "text-accent" : "text-destructive")}>{formatPnl(stats.pnl)}</p>
             </div>
             <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
@@ -156,6 +154,14 @@ function DayCell({ stats, date }: { stats: DailyStats, date: Date }) {
       </Tooltip>
     </TooltipProvider>
   );
+}
+
+function EmptyDayCell({ date }: { date: Date }) {
+    return (
+        <div className="relative h-28 sm:h-32 w-full p-2 rounded-lg border border-dashed border-border/50 bg-muted/20">
+            <div className="text-xs font-semibold text-muted-foreground/60">{format(date, 'd')}</div>
+        </div>
+    );
 }
 
 function MetricWidget({ title, value, unit, description }: { title: string; value: string; unit?: string; description: string }) {
@@ -198,14 +204,6 @@ function TradeListItem({ trade }: { trade: Trade }) {
   )
 }
 
-function EmptyDayCell({ date }: { date: Date }) {
-    return (
-        <div className="relative h-full w-full p-2 rounded-lg border border-dashed border-border/50">
-            <div className="absolute top-1 right-2 text-xs text-muted-foreground">{format(date, 'd')}</div>
-        </div>
-    );
-}
-
 // --- Main Page ---
 export default function JournalPage() {
   const { trades, loading } = useTrades()
@@ -215,28 +213,36 @@ export default function JournalPage() {
   const dailyStats = React.useMemo(() => calculateDailyStats(trades), [trades])
   const overallMetrics = React.useMemo(() => calculateOverallMetrics(trades), [trades])
 
-  const selectedDayStats = selectedDay ? dailyStats.get(startOfDay(selectedDay).toISOString()) : undefined
+  const selectedDayStats = selectedDay ? dailyStats.get(format(selectedDay, 'yyyy-MM-dd')) : undefined
 
+  const calendarDays = React.useMemo(() => {
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday start
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: startDate, end: endDate });
+  }, [month]);
+  
   const weeklyStats: WeeklyStats[] = React.useMemo(() => {
-    const currentMonth = getMonth(month)
-    const currentYear = getYear(month)
+    const currentMonth = month.getMonth()
+    const currentYear = month.getFullYear()
 
     const weeks: Record<number, { pnl: number; days: Set<string> }> = {}
 
     trades
       .filter(trade => {
         const tradeDate = new Date(trade.closing_time_utc)
-        return getMonth(tradeDate) === currentMonth && getYear(tradeDate) === currentYear
+        return tradeDate.getMonth() === currentMonth && tradeDate.getFullYear() === currentYear
       })
       .forEach(trade => {
         const tradeDate = new Date(trade.closing_time_utc)
-        const weekNumber = getWeek(tradeDate, { weekStartsOn: 1 })
+        const weekNumber = parseInt(format(tradeDate, 'w'), 10)
 
         if (!weeks[weekNumber]) {
           weeks[weekNumber] = { pnl: 0, days: new Set() }
         }
         weeks[weekNumber].pnl += trade.profit_usd || 0
-        weeks[weekNumber].days.add(startOfDay(tradeDate).toISOString())
+        weeks[weekNumber].days.add(format(tradeDate, 'yyyy-MM-dd'))
       })
 
     return Object.entries(weeks)
@@ -250,6 +256,17 @@ export default function JournalPage() {
         <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
       </MainLayout>
     )
+  }
+
+  const handleDayClick = (date: Date) => {
+    if (format(date, 'yyyy-MM') === format(month, 'yyyy-MM')) {
+        setSelectedDay(date);
+    }
+  }
+
+  const handleMonthChange = (newMonth: Date) => {
+    setMonth(newMonth);
+    setSelectedDay(undefined);
   }
 
   return (
@@ -274,36 +291,55 @@ export default function JournalPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-9">
                  <Card>
-                    <CardContent className="p-2 sm:p-4">
+                    <CardHeader className="p-2 sm:p-4">
                         <Calendar
                             month={month}
-                            onMonthChange={setMonth}
-                            mode="single"
+                            onMonthChange={handleMonthChange}
+                            onSelect={handleDayClick}
                             selected={selectedDay}
-                            onSelect={setSelectedDay}
                             className="p-0"
-                            components={{
-                                Day: ({ date }) => {
-                                    const stats = dailyStats.get(startOfDay(date).toISOString());
-                                    return (
-                                        <div className="h-28 sm:h-32 w-full">
-                                            {stats ? <DayCell stats={stats} date={date}/> : <EmptyDayCell date={date} />}
-                                        </div>
-                                    )
-                                },
-                            }}
                             classNames={{
                                 months: "w-full",
                                 month: "w-full space-y-4",
                                 caption_label: "text-lg font-bold",
-                                head_cell: "w-full text-muted-foreground uppercase text-xs pb-2 font-normal",
-                                table: "w-full border-separate border-spacing-1",
-                                cell: "p-0",
+                                table: "w-full border-collapse",
+                                head_row: "grid grid-cols-7",
+                                head_cell: "text-center text-muted-foreground uppercase text-xs pb-2 font-normal",
+                                row: "grid grid-cols-7 gap-1",
+                                cell: "p-0 aspect-square",
                                 day: "w-full h-full p-0 rounded-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
-                                day_selected: "", // We handle selection via state
+                                day_selected: "ring-2 ring-primary ring-offset-2",
+                                day_outside: "text-muted-foreground/50",
+                                day_today: "bg-accent/20 text-accent-foreground",
+                            }}
+                            components={{
+                                Row: ({ children }) => <div className="grid grid-cols-7 gap-1">{children}</div>,
+                                Cell: ({ children, date }) => {
+                                    const stats = dailyStats.get(format(date, 'yyyy-MM-dd'));
+                                    const isOutside = format(date, 'yyyy-MM') !== format(month, 'yyyy-MM');
+                                    
+                                    return (
+                                        <div
+                                            onClick={() => handleDayClick(date)}
+                                            className={cn(
+                                                "w-full h-full cursor-pointer rounded-lg",
+                                                isOutside ? "opacity-50 pointer-events-none" : "",
+                                                selectedDay && format(selectedDay, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd') ? "ring-2 ring-primary ring-offset-background ring-offset-2" : ""
+                                            )}
+                                        >
+                                            {stats ? <DayCell stats={stats} date={date}/> : <EmptyDayCell date={date} />}
+                                        </div>
+                                    )
+                                },
+                                Head: () => (
+                                    <div className="grid grid-cols-7 text-center text-muted-foreground uppercase text-xs pb-2 font-normal">
+                                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
+                                    </div>
+                                ),
+                                Day: () => <></> // We handle day rendering in Cell now
                             }}
                         />
-                    </CardContent>
+                    </CardHeader>
                 </Card>
             </div>
 
@@ -318,8 +354,8 @@ export default function JournalPage() {
                 {weeklyStats.map((weekData, index) => (
                   <div key={weekData.week} className="flex justify-between items-center text-sm">
                     <div>
-                      <p className="font-bold">Week {index + 1}</p>
-                      <p className="text-xs text-muted-foreground">{weekData.days} day{weekData.days !== 1 && "s"}</p>
+                      <p className="font-bold">Week {weekData.week}</p>
+                      <p className="text-xs text-muted-foreground">{weekData.days} trading day{weekData.days !== 1 && "s"}</p>
                     </div>
                     <p className={cn("font-semibold", weekData.pnl > 0 ? "text-accent" : weekData.pnl < 0 ? "text-destructive" : "text-muted-foreground")}>
                       {weekData.pnl.toLocaleString("en-US", { style: "currency", currency: "USD" })}
@@ -359,3 +395,5 @@ export default function JournalPage() {
     </MainLayout>
   )
 }
+
+    
