@@ -212,7 +212,5 @@ export default function JournalListPage() {
     </MainLayout>
   );
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> 18eb5ff (Try fixing this error: `Runtime Error: Error: Cannot read properties of)
+    
